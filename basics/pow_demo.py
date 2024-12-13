@@ -44,7 +44,7 @@ class Block:
         while self.hash[:len(target_prefix)] != target_prefix:
             self.nonce += 1
             self.hash = self.calculate_hash()
-        print(f"Block mined: {self.hash}")
+        print(f"Block mined with difficulty {len(target_prefix)}: {self.hash}")
 
 
 class Blockchain:
@@ -56,6 +56,30 @@ class Blockchain:
 
     def __init__(self):
         self.chain = [self.create_genesis_block()]
+        self.difficulty = "0000"  # 网络难度值统一存储在这里
+        self.target_block_time = 1  # 目标出块时间(秒)
+        self.difficulty_adjustment_interval = 4  # 每4个区块调整一次难度
+
+    def adjust_difficulty(self):
+        """
+        难度调整算法(简化版)：
+        - 如果出块太快，增加难度
+        - 如果出块太慢，降低难度
+        """
+        if len(self.chain) % self.difficulty_adjustment_interval != 0:
+            return self.difficulty
+
+        # 计算最近10个区块的平均出块时间
+        recent_blocks = self.chain[-self.difficulty_adjustment_interval:]
+        time_diff = recent_blocks[-1].timestamp - recent_blocks[0].timestamp
+        avg_block_time = time_diff / self.difficulty_adjustment_interval
+
+        # 根据平均出块时间调整难度
+        if avg_block_time < self.target_block_time:
+            return "0" + self.difficulty  # 增加难度
+        elif avg_block_time > self.target_block_time:
+            return self.difficulty[1:]  # 降低难度
+        return self.difficulty
 
     def create_genesis_block(self):
         # 创世区块：
@@ -69,7 +93,8 @@ class Blockchain:
         # 1. 矿工在找到有效区块后广播给网络
         # 2. 其他节点验证后将区块添加到自己的本地链上
         new_block.previous_hash = self.chain[-1].hash
-        new_block.mine_block("0000")  # 改为4个0
+        self.difficulty = self.adjust_difficulty()  # 调整难度
+        new_block.mine_block(self.difficulty)
         self.chain.append(new_block)
 
 
@@ -115,10 +140,10 @@ class ValidatorNode:
         return [Block(f"Received transaction data {i+1}") for i in range(num_blocks)]
 
     def verify_block(self, block: Block) -> bool:
-        # 验证区块的有效性
-        target_prefix = "0000"
-        is_pow_valid = block.hash.startswith(target_prefix)
-        print(f"Validator: Verifying block {block.hash}")
+        # 从区块链获取当前难度
+        current_difficulty = self.blockchain.difficulty
+        is_pow_valid = block.hash.startswith(current_difficulty)
+        print(f"Validator: Verifying block {block.hash} with difficulty {len(current_difficulty)}")
         return is_pow_valid
 
     def start_validating(self, num_blocks: int = 3) -> None:
