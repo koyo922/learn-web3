@@ -65,7 +65,7 @@ class Blockchain:
     def adjust_difficulty(self):
         """
         难度调整算法(简化版)：
-        - 如果出块太快，增加难度
+        - 如果��块太快，增加难度
         - 如果出块太慢，降低难度
         """
         if len(self.chain) % self.difficulty_adjustment_interval != 0:
@@ -109,26 +109,81 @@ class Node:
 
     def __init__(self):
         self.blockchain = Blockchain()
+        self.fork_chains: list[list[Block]] = []  # 存储临时分叉链
 
     def sync_with_network(self, peer_blocks: list[Block]) -> None:
-        """从其他节点同步区块数据"""
-        print("\nNode: Starting blockchain sync...")
+        temp_chain = []
 
         for block in peer_blocks:
-            # 1. 获取该区块的难度值
-            block_difficulty = block.difficulty
-            print(f"Node: Validating block with difficulty: {block_difficulty}")
-
-            # 2. 使用区块自带的难度值进行验证
-            if self.verify_block(block, block_difficulty):
-                self.blockchain.chain.append(block)
-                print(f"Node: Accepted block: {block.hash[:10]}...")
+            if self.verify_block(block, block.difficulty):
+                temp_chain.append(block)
             else:
-                print(f"Node: Rejected invalid block: {block.hash[:10]}...")
+                # 无效区块时,保存当前临时链
+                if temp_chain:
+                    self.fork_chains.append(temp_chain)
+                temp_chain = []  # 重新开始收集
+                continue
 
-    def verify_block(self, block: Block, difficulty: str) -> bool:
-        """使用指定难度值验证区块"""
-        return block.hash.startswith(difficulty)
+        # 同步结束后选择最长的有效链
+        if temp_chain:
+            self.fork_chains.append(temp_chain)
+
+        if self.fork_chains:
+            longest_chain = max(self.fork_chains, key=len)
+            if len(longest_chain) > len(self.blockchain.chain):
+                self.blockchain.chain = longest_chain
+
+    def verify_block(self, block: Block, claimed_difficulty: str) -> bool:
+        """验证区块
+        1. 验证难度值是否符合网络规则
+        2. 验证区块哈希是否满足难度要求
+        """
+        # 1. 计算这个区块应该使用的难度值
+        expected_difficulty = self.calculate_expected_difficulty(block)
+
+        # 2. 验证声称的难度值是否符合预期
+        if claimed_difficulty != expected_difficulty:
+            print(f"Invalid difficulty: expected {expected_difficulty}, got {claimed_difficulty}")
+            return False
+
+        # 3. 验证区块哈希是否满足难度要求
+        return block.hash.startswith(claimed_difficulty)
+
+    def calculate_expected_difficulty(self, block: Block) -> str:
+        """根据区块高度和时间戳计算期望的难度值"""
+        # 获取上一个难度调整点的区块
+        adjustment_block = self.get_last_adjustment_block()
+
+        # 如果还没到调整点，使用之前的难度
+        if not self.is_adjustment_point(block):
+            return adjustment_block.difficulty
+
+        # 如果是调整点，计算新难度
+        return self.calculate_new_difficulty(adjustment_block, block)
+
+    def get_last_adjustment_block(self) -> Block:
+        """获取上一个难度调整点的区块"""
+        for block in reversed(self.blockchain.chain):
+            if block.difficulty != "0000":
+                return block
+        return self.blockchain.chain[0]
+
+    def is_adjustment_point(self, block: Block) -> bool:
+        """判断区块是否为难度调整点"""
+        return len(self.blockchain.chain) % self.blockchain.difficulty_adjustment_interval == 0
+
+    def calculate_new_difficulty(self, adjustment_block: Block, block: Block) -> str:
+        """计算新难度值"""
+        # 计算出块时间差
+        time_diff = block.timestamp - adjustment_block.timestamp
+        avg_block_time = time_diff / (len(self.blockchain.chain) - self.blockchain.chain.index(adjustment_block))
+
+        # 计算新难度
+        if avg_block_time < self.blockchain.target_block_time:
+            return "0" + adjustment_block.difficulty
+        elif avg_block_time > self.blockchain.target_block_time:
+            return adjustment_block.difficulty[1:]
+        return adjustment_block.difficulty
 
 
 class MinerNode(Node):
@@ -141,10 +196,8 @@ class MinerNode(Node):
         blocks_mined = 0
 
         while blocks_mined < num_blocks:
-            print(f"\nMiner: Starting to mine block #{blocks_mined + 1}")
-
-            # 获取当前网络难度
-            current_difficulty = self.blockchain.get_latest_difficulty()
+            # 使用 Node 类的难度计算逻辑
+            current_difficulty = self.calculate_expected_difficulty(self.blockchain.chain[-1])
 
             new_block = Block(f"Block {blocks_mined + 1}")
             new_block.previous_hash = self.blockchain.chain[-1].hash
