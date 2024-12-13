@@ -69,8 +69,75 @@ class Blockchain:
         # 1. 矿工在找到有效区块后广播给网络
         # 2. 其他节点验证后将区块添加到自己的本地链上
         new_block.previous_hash = self.chain[-1].hash
-        new_block.mine_block("000000")
+        new_block.mine_block("0000")  # 改为4个0
         self.chain.append(new_block)
+
+
+class MinerNode:
+    """矿工节点行为模拟"""
+
+    def __init__(self):
+        self.blockchain = Blockchain()
+        self.is_mining = True  # 控制挖矿循环
+
+    def collect_transactions(self) -> str:
+        # 模拟从交易池收集交易
+        return f"Transaction batch {datetime.datetime.now()}"
+
+    def broadcast_block(self, block: Block) -> None:
+        # 模拟向网络广播新区块
+        print(f"Broadcasting new block with hash: {block.hash}")
+
+    def start_mining(self, num_blocks: int = 3) -> None:
+        # 持续挖矿过程
+        blocks_mined = 0
+        while blocks_mined < num_blocks:  # 在实际网络中这是无限循环
+            print(f"\nMiner: Starting to mine block #{blocks_mined + 1}")
+            transactions = self.collect_transactions()
+            new_block = Block(data=transactions)
+
+            self.blockchain.add_block(new_block)  # 包含耗时的挖矿过程
+            self.broadcast_block(new_block)
+
+            blocks_mined += 1
+            print(f"Miner: Total blocks mined: {blocks_mined}")
+
+
+class ValidatorNode:
+    """验证节点行为模拟"""
+
+    def __init__(self):
+        self.blockchain = Blockchain()
+        self.is_validating = True  # 控制验证循环
+
+    def receive_blocks(self, num_blocks: int) -> list[Block]:
+        # 模拟从网络接收多个区块
+        return [Block(f"Received transaction data {i+1}") for i in range(num_blocks)]
+
+    def verify_block(self, block: Block) -> bool:
+        # 验证区块的有效性
+        target_prefix = "0000"
+        is_pow_valid = block.hash.startswith(target_prefix)
+        print(f"Validator: Verifying block {block.hash}")
+        return is_pow_valid
+
+    def start_validating(self, num_blocks: int = 3) -> None:
+        # 持续验证过程
+        print("\nValidator: Starting validation process")
+        blocks_validated = 0
+
+        # 在实际网络中这是无限循环，监听新区块
+        received_blocks = self.receive_blocks(num_blocks)
+        for block in received_blocks:
+            print(f"\nValidator: Processing block #{blocks_validated + 1}")
+            if self.verify_block(block):
+                print("Validator: Block verified, adding to chain")
+                self.blockchain.chain.append(block)
+                blocks_validated += 1
+            else:
+                print("Validator: Invalid block rejected")
+
+        print(f"Validator: Total blocks validated: {blocks_validated}")
 
 
 if __name__ == "__main__":
@@ -85,3 +152,28 @@ if __name__ == "__main__":
     blockchain.add_block(Block(data="Block 1"))
     blockchain.add_block(Block(data="Block 2"))
     blockchain.add_block(Block(data="Block 3"))
+
+    # 添加角色模拟演示
+    print("\n=== Simulating Different Node Roles ===")
+
+    # 模拟矿工行为
+    print("\nMiner Node Simulation:")
+    miner = MinerNode()
+    miner.mine_new_block()
+
+    # 模拟验证节点行为
+    print("\nValidator Node Simulation:")
+    validator = ValidatorNode()
+    validator.validate_new_block()
+
+    print("\n=== Simulating Continuous Mining and Validation ===")
+
+    # 模拟持续挖矿
+    print("\nContinuous Miner Simulation:")
+    miner = MinerNode()
+    miner.start_mining(num_blocks=3)  # 挖3个区块
+
+    # 模拟持续验证
+    print("\nContinuous Validator Simulation:")
+    validator = ValidatorNode()
+    validator.start_validating(num_blocks=3)  # 验证3个区块
