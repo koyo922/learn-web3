@@ -3,7 +3,7 @@
 
 import hashlib
 import datetime
-from typing import Any
+import random
 
 
 class Block:
@@ -32,7 +32,7 @@ class Block:
         sha.update(
             str(self.data).encode()
             + str(self.previous_hash).encode()
-            # + str(self.timestamp).encode()
+            + str(self.timestamp).encode()
             + str(self.nonce).encode()
         )
         return sha.hexdigest()
@@ -62,27 +62,6 @@ class Blockchain:
         self.target_block_time = 1  # 目标出块时间(秒)
         self.difficulty_adjustment_interval = 4  # 每4个区块调整一次难度
 
-    def adjust_difficulty(self):
-        """
-        难度调整算法(简化版)：
-        - 如果��块太快，增加难度
-        - 如果出块太慢，降低难度
-        """
-        if len(self.chain) % self.difficulty_adjustment_interval != 0:
-            return self.difficulty
-
-        # 计算最近10个区块的平均出块时间
-        recent_blocks = self.chain[-self.difficulty_adjustment_interval:]
-        time_diff = recent_blocks[-1].timestamp - recent_blocks[0].timestamp
-        avg_block_time = time_diff / self.difficulty_adjustment_interval
-
-        # 根据平均出块时间调整难度
-        if avg_block_time < self.target_block_time:
-            return "0" + self.difficulty  # 增加难度
-        elif avg_block_time > self.target_block_time:
-            return self.difficulty[1:]  # 降低难度
-        return self.difficulty
-
     def create_genesis_block(self):
         # 创世区块：
         # - 网络初始化时只执行一次
@@ -90,63 +69,132 @@ class Blockchain:
         # - 所有节点都认可同一个创世区块
         return Block("Genesis Block", "0")
 
-    def add_block(self, new_block: Block):
-        # 由所有节点执行：
-        # 1. 矿工在找到有效区块后广播给网络
-        # 2. 其他节点验证后将区块添加到自己的本地链上
-        new_block.previous_hash = self.chain[-1].hash
-        self.difficulty = self.adjust_difficulty()  # 调整难度
-        new_block.mine_block(self.difficulty)
-        self.chain.append(new_block)
-
-    def get_latest_difficulty(self) -> str:
-        """从最新区块获取当前网络难度"""
-        return self.chain[-1].difficulty
-
 
 class Node:
     """模拟网络节点的基类"""
 
     def __init__(self):
         self.blockchain = Blockchain()
-        self.fork_chains: list[list[Block]] = []  # 存储临时分叉链
+        self.orphan_blocks: dict[str, Block] = {}  # hash -> block
+        self.fork_chains: list[list[Block]] = []
+
+    def process_new_block(self, block: Block) -> None:
+        """处理新区块，包括分叉处理
+
+        分叉场景示例:
+        时间轴:
+        t1: 矿工A和B都在挖Block#100
+        t2: 矿工A找到解决方案，广播Block#100-A
+        t3: 在收到A的广播之前，矿工B也找到解决方案，广播Block#100-B
+
+        结果:
+        Block#99 --> Block#100-A --> Block#101 --> Block#102  (最终胜出的链)
+                \-> Block#100-B                               (被抛弃的链)
+
+        安全风险:
+        如果某个矿工拥有超级算力(>50%全网算力)：
+        1. 可以在Block#100-B后快速挖出更多区块
+        2. 形成更长的链并最终被网络接受
+        3. 这就是著名的"51%攻击"，可以用来：
+           - 回滚已确认的交易
+           - 进行双重支付
+           - 拒绝打包特定交易
+
+        这就是为什么：
+        1. 比特币要等待6个确认才认为交易最终确认
+           - 每个确认是指交易所在区块之后的新区块
+           - 6个确认约需1小时(每个区块10分钟)
+           - 6个确认使得攻击者重组链的概率极低
+        2. 去中心化(算力分散)对网络安全至关重要
+        """
+        # 1. 检查在主链上是否有父区块
+        if block.previous_hash not in [b.hash for b in self.blockchain.chain]:
+            # 在分叉链上检查是否存在父区块
+            for fork_chain in self.fork_chains:
+                if block.previous_hash == fork_chain[-1].hash:
+                    # 先验证区块
+                    if self.verify_block(block, block.difficulty):
+                        fork_chain.append(block)
+                        print(f"Block added to fork chain: {block.hash[:10]}...")
+                    else:
+                        print(f"Invalid block rejected: {block.hash[:10]}...")
+                    return
+
+            # 找不到父区块，且验证通过才放入孤块池
+            if self.verify_block(block, block.difficulty):
+                self.orphan_blocks[block.hash] = block
+                print(f"Orphan block stored: {block.hash[:10]}...")
+            else:
+                print(f"Invalid orphan block rejected: {block.hash[:10]}...")
+            return
+
+        # 2. 验证并添加区块
+        if self.verify_block(block, block.difficulty):
+            # 检查是否会形成新的分叉
+            if block.previous_hash == self.blockchain.chain[-1].hash:
+                self.blockchain.chain.append(block)
+            else:
+                # 创建新的分叉链
+                fork_point = next(
+                    i for i, b in enumerate(self.blockchain.chain)
+                    if b.hash == block.previous_hash
+                )
+                new_fork = self.blockchain.chain[:fork_point + 1] + [block]
+                self.fork_chains.append(new_fork)
+                print(f"New fork chain created at height {fork_point}")
+
+            # 3. 检查是否可以连接任何孤块
+            self.try_connect_orphans(block.hash)
+
+    def try_connect_orphans(self, parent_hash: str) -> None:
+        # 尝试连接依赖这个区块的孤块
+        connected = []
+        for orphan_hash, orphan_block in self.orphan_blocks.items():
+            if orphan_block.previous_hash == parent_hash:
+                if self.verify_block(orphan_block, orphan_block.difficulty):
+                    self.blockchain.chain.append(orphan_block)
+                    connected.append(orphan_hash)
+                    # 递归处理
+                    self.try_connect_orphans(orphan_block.hash)
+
+        # 移除已连接的孤块
+        for hash in connected:
+            del self.orphan_blocks[hash]
 
     def sync_with_network(self, peer_blocks: list[Block]) -> None:
-        temp_chain = []
+        print("\nNode: Starting blockchain sync...")
 
+        # 逐个处理接收到的区块
         for block in peer_blocks:
-            if self.verify_block(block, block.difficulty):
-                temp_chain.append(block)
-            else:
-                # 无效区块时,保存当前临时链
-                if temp_chain:
-                    self.fork_chains.append(temp_chain)
-                temp_chain = []  # 重新开始收集
-                continue
+            self.process_new_block(block)
 
-        # 同步结束后选择最长的有效链
-        if temp_chain:
-            self.fork_chains.append(temp_chain)
-
+        # 如果有多个分叉链,选择最长的有效链
         if self.fork_chains:
             longest_chain = max(self.fork_chains, key=len)
             if len(longest_chain) > len(self.blockchain.chain):
                 self.blockchain.chain = longest_chain
+                print(f"Node: Switched to longer chain with length {len(longest_chain)}")
 
     def verify_block(self, block: Block, claimed_difficulty: str) -> bool:
         """验证区块
-        1. 验证难度值是否符合网络规则
-        2. 验证区块哈希是否满足难度要求
+        1. 验证区块顺序(previous_hash必须匹配链上最后一个区块)
+        2. 验证难度值是否符合网络规则
+        3. 验证区块哈希是否满足难度要求
         """
-        # 1. 计算这个区块应该使用的难度值
-        expected_difficulty = self.calculate_expected_difficulty(block)
+        # 验证区块顺序
+        if len(self.blockchain.chain) > 0:
+            last_block = self.blockchain.chain[-1]
+            if block.previous_hash != last_block.hash:
+                print(f"Invalid block order: previous_hash doesn't match")
+                return False
 
-        # 2. 验证声称的难度值是否符合预期
+        # 验证难度值
+        expected_difficulty = self.calculate_expected_difficulty(block)
         if claimed_difficulty != expected_difficulty:
             print(f"Invalid difficulty: expected {expected_difficulty}, got {claimed_difficulty}")
             return False
 
-        # 3. 验证区块哈希是否满足难度要求
+        # 验证哈希
         return block.hash.startswith(claimed_difficulty)
 
     def calculate_expected_difficulty(self, block: Block) -> str:
@@ -222,8 +270,10 @@ if __name__ == "__main__":
 
     # 1. 矿工挖出新区块
     miner = MinerNode()
-    new_blocks = miner.start_mining(num_blocks=3)
+    new_blocks = miner.start_mining(num_blocks=5)
 
     # 2. 验证节点同步这些区块
     validator = ValidatorNode()
+    # mock shuffle the blocks
+    random.shuffle(new_blocks)
     validator.start_validating(new_blocks)
