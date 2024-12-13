@@ -21,6 +21,7 @@ class Block:
         self.previous_hash = previous_hash  # optional, as will be overwritten in Blockchain.add_block()
         self.timestamp = datetime.datetime.now()
         self.nonce = 0
+        self.difficulty = "0000"  # 每个区块都存储当时的难度值
         self.hash = self.calculate_hash()
 
     def calculate_hash(self):
@@ -41,6 +42,7 @@ class Block:
         # - 这是最耗费算力的PoW过程
         # - 全网矿工竞争，谁先找到有效nonce谁就获得记账权
         # - 目标前缀越长，难度越大
+        self.difficulty = target_prefix  # 保存挖矿时的难度值
         while self.hash[:len(target_prefix)] != target_prefix:
             self.nonce += 1
             self.hash = self.calculate_hash()
@@ -56,7 +58,7 @@ class Blockchain:
 
     def __init__(self):
         self.chain = [self.create_genesis_block()]
-        self.difficulty = "0000"  # 网络难度值统一存储在这里
+        self.difficulty = "0000"  # 当前网络难度
         self.target_block_time = 1  # 目标出块时间(秒)
         self.difficulty_adjustment_interval = 4  # 每4个区块调整一次难度
 
@@ -97,108 +99,78 @@ class Blockchain:
         new_block.mine_block(self.difficulty)
         self.chain.append(new_block)
 
-
-class MinerNode:
-    """矿工节点行为模拟"""
-
-    def __init__(self):
-        self.blockchain = Blockchain()
-        self.is_mining = True  # 控制挖矿循环
-
-    def collect_transactions(self) -> str:
-        # 模拟从交易池收集交易
-        return f"Transaction batch {datetime.datetime.now()}"
-
-    def broadcast_block(self, block: Block) -> None:
-        # 模拟向网络广播新区块
-        print(f"Broadcasting new block with hash: {block.hash}")
-
-    def start_mining(self, num_blocks: int = 3) -> None:
-        # 持续挖矿过程
-        blocks_mined = 0
-        while blocks_mined < num_blocks:  # 在实际网络中这是无限循环
-            print(f"\nMiner: Starting to mine block #{blocks_mined + 1}")
-            transactions = self.collect_transactions()
-            new_block = Block(data=transactions)
-
-            self.blockchain.add_block(new_block)  # 包含耗时的挖矿过程
-            self.broadcast_block(new_block)
-
-            blocks_mined += 1
-            print(f"Miner: Total blocks mined: {blocks_mined}")
+    def get_latest_difficulty(self) -> str:
+        """从最新区块获取当前网络难度"""
+        return self.chain[-1].difficulty
 
 
-class ValidatorNode:
-    """验证节点行为模拟"""
+class Node:
+    """模拟网络节点的基类"""
 
     def __init__(self):
         self.blockchain = Blockchain()
-        self.is_validating = True  # 控制验证循环
 
-    def receive_blocks(self, num_blocks: int) -> list[Block]:
-        # 模拟从网络接收多个区块
-        return [Block(f"Received transaction data {i+1}") for i in range(num_blocks)]
+    def sync_with_network(self, peer_blocks: list[Block]) -> None:
+        """从其他节点同步区块数据"""
+        print("\nNode: Starting blockchain sync...")
 
-    def verify_block(self, block: Block) -> bool:
-        # 从区块链获取当前难度
-        current_difficulty = self.blockchain.difficulty
-        is_pow_valid = block.hash.startswith(current_difficulty)
-        print(f"Validator: Verifying block {block.hash} with difficulty {len(current_difficulty)}")
-        return is_pow_valid
+        for block in peer_blocks:
+            # 1. 获取该区块的难度值
+            block_difficulty = block.difficulty
+            print(f"Node: Validating block with difficulty: {block_difficulty}")
 
-    def start_validating(self, num_blocks: int = 3) -> None:
-        # 持续验证过程
-        print("\nValidator: Starting validation process")
-        blocks_validated = 0
-
-        # 在实际网络中这是无限循环，监听新区块
-        received_blocks = self.receive_blocks(num_blocks)
-        for block in received_blocks:
-            print(f"\nValidator: Processing block #{blocks_validated + 1}")
-            if self.verify_block(block):
-                print("Validator: Block verified, adding to chain")
+            # 2. 使用区块自带的难度值进行验证
+            if self.verify_block(block, block_difficulty):
                 self.blockchain.chain.append(block)
-                blocks_validated += 1
+                print(f"Node: Accepted block: {block.hash[:10]}...")
             else:
-                print("Validator: Invalid block rejected")
+                print(f"Node: Rejected invalid block: {block.hash[:10]}...")
 
-        print(f"Validator: Total blocks validated: {blocks_validated}")
+    def verify_block(self, block: Block, difficulty: str) -> bool:
+        """使用指定难度值验证区块"""
+        return block.hash.startswith(difficulty)
+
+
+class MinerNode(Node):
+    def __init__(self):
+        super().__init__()
+        self.is_mining = True
+
+    def start_mining(self, num_blocks: int = 3) -> list[Block]:
+        mined_blocks = []
+        blocks_mined = 0
+
+        while blocks_mined < num_blocks:
+            print(f"\nMiner: Starting to mine block #{blocks_mined + 1}")
+
+            # 获取当前网络难度
+            current_difficulty = self.blockchain.get_latest_difficulty()
+
+            new_block = Block(f"Block {blocks_mined + 1}")
+            new_block.previous_hash = self.blockchain.chain[-1].hash
+            new_block.mine_block(current_difficulty)
+
+            self.blockchain.chain.append(new_block)
+            mined_blocks.append(new_block)
+            blocks_mined += 1
+
+        return mined_blocks
+
+
+class ValidatorNode(Node):
+    def start_validating(self, received_blocks: list[Block]) -> None:
+        print("\nValidator: Starting validation process")
+        self.sync_with_network(received_blocks)
+        print(f"Validator: Finished processing {len(received_blocks)} blocks")
 
 
 if __name__ == "__main__":
-    # 演示代码
-    # 注意：实际的区块链网络还需要：
-    # 1. P2P网络通信
-    # 2. 共识机制(处理分叉)
-    # 3. 交易池管理
-    # 4. 完整的区块验证规则
-    # 5. 挖矿奖励机制
-    blockchain = Blockchain()
-    blockchain.add_block(Block(data="Block 1"))
-    blockchain.add_block(Block(data="Block 2"))
-    blockchain.add_block(Block(data="Block 3"))
+    print("=== Simulating Blockchain Network with Difficulty Sync ===")
 
-    # 添加角色模拟演示
-    print("\n=== Simulating Different Node Roles ===")
-
-    # 模拟矿工行为
-    print("\nMiner Node Simulation:")
+    # 1. 矿工挖出新区块
     miner = MinerNode()
-    miner.mine_new_block()
+    new_blocks = miner.start_mining(num_blocks=3)
 
-    # 模拟验证节点行为
-    print("\nValidator Node Simulation:")
+    # 2. 验证节点同步这些区块
     validator = ValidatorNode()
-    validator.validate_new_block()
-
-    print("\n=== Simulating Continuous Mining and Validation ===")
-
-    # 模拟持续挖矿
-    print("\nContinuous Miner Simulation:")
-    miner = MinerNode()
-    miner.start_mining(num_blocks=3)  # 挖3个区块
-
-    # 模拟持续验证
-    print("\nContinuous Validator Simulation:")
-    validator = ValidatorNode()
-    validator.start_validating(num_blocks=3)  # 验证3个区块
+    validator.start_validating(new_blocks)
