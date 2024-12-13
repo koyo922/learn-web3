@@ -149,7 +149,7 @@ class Node:
         connected = []
         to_delete = []  # 记录需要删除的恶意/无效区块
 
-        for orphan_hash, orphan_block in self.orphan_blocks.items():
+        for orphan_hash, orphan_block in list(self.orphan_blocks.items()):
             if orphan_block.previous_hash == parent_hash:
                 if self.verify_block(orphan_block):
                     self.blockchain.chain.append(orphan_block)
@@ -272,6 +272,7 @@ class Node:
         for b in chain:
             if b.hash == block.previous_hash:
                 block_height = chain.index(b) + 2
+                print(f"Debug: block_height={block_height}, interval={self.blockchain.difficulty_adjustment_interval}")
                 break
 
         # 如果不在主链上，检查分叉链
@@ -293,6 +294,11 @@ class Node:
         blocks_since_adjustment = len(chain) - chain.index(adjustment_block)
         avg_block_time = time_diff / blocks_since_adjustment
 
+        # 添加调试信息
+        print(f"Debug: avg_block_time={avg_block_time}, target={self.blockchain.target_block_time}")
+        print(f"Debug: current difficulty={adjustment_block.difficulty}")
+
+        # 问题在这里：难度调整逻辑可能有问题
         if avg_block_time < self.blockchain.target_block_time:
             return "0" + adjustment_block.difficulty
         elif avg_block_time > self.blockchain.target_block_time:
@@ -310,11 +316,11 @@ class MinerNode(Node):
         blocks_mined = 0
 
         while blocks_mined < num_blocks:
-            # 使用 Node 类的难度计算逻辑
-            current_difficulty = self.calculate_expected_difficulty(self.blockchain.chain[-1])
-
             new_block = Block(f"Block {blocks_mined + 1}")
             new_block.previous_hash = self.blockchain.chain[-1].hash
+
+            # 修改：用新区块计算难度，而不是用链上最后一个区块
+            current_difficulty = self.calculate_expected_difficulty(new_block)
             new_block.mine_block(current_difficulty)
 
             self.blockchain.chain.append(new_block)
@@ -341,5 +347,40 @@ if __name__ == "__main__":
     # 2. 验证节点同步这些区块
     validator = ValidatorNode()
     # mock shuffle the blocks
-    # random.shuffle(new_blocks)
+    random.shuffle(new_blocks)
     validator.start_validating(new_blocks)
+
+"""
+
+=== Simulating Blockchain Network with Difficulty Sync ===
+Debug: block_height=2, interval=4
+Block mined with difficulty 4: 00005ca24361f6e2e55c89b28fc43ffc63690385683157e59be67bda881407da
+Debug: block_height=3, interval=4
+Block mined with difficulty 4: 0000440732edd2bb573d0be79a3388db0e376520f5290f2f5ffb6e31b8fe5b72
+Debug: block_height=4, interval=4
+Debug: avg_block_time=0.038856666666666664, target=1
+Debug: current difficulty=0000
+Block mined with difficulty 5: 00000a7e8b407d917bd0b72a4cb98a14ae939a732782f65c878dcd593eaa3993
+Debug: block_height=5, interval=4
+Block mined with difficulty 5: 00000be3ebc51c9cedbdca06e37ab3ed09b225065ec502b5d571b2670ffa6b44
+Debug: block_height=6, interval=4
+Block mined with difficulty 5: 00000ce1ccb0d7c5fa24332afdd17e00355ed629e9b1a1ae375f745e8413d63a
+
+Validator: Starting validation process
+
+Node: Starting blockchain sync...
+Orphan block stored: 0000440732...
+Debug: block_height=2, interval=4
+Block added to main chain: 00005ca243...
+Debug: block_height=3, interval=4
+Debug: block_height=4, interval=4
+Debug: avg_block_time=0.038856666666666664, target=1
+Debug: current difficulty=0000
+Block added to main chain: 00000a7e8b...
+Orphan block stored: 00000ce1cc...
+Debug: block_height=5, interval=4
+Block added to main chain: 00000be3eb...
+Debug: block_height=6, interval=4
+Sync finished. Chain length: 6, Remaining orphans: 0
+Validator: Finished processing 5 blocks
+"""
