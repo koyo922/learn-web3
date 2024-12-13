@@ -13,12 +13,12 @@ class Block:
     - 所有节点都会验证区块的有效性
     """
 
-    def __init__(self, data, previous_hash=''):
+    def __init__(self, data, previous_hash):
         # 由矿工节点执行：
         # - 收集一段时间内(约10分钟)的交易
         # - 将交易打包成区块
         self.data = data  # the transaction records during a 10min interval
-        self.previous_hash = previous_hash  # optional, as will be overwritten in Blockchain.add_block()
+        self.previous_hash = previous_hash
         self.timestamp = datetime.datetime.now()
         self.nonce = 0
         self.difficulty = "0000"  # 每个区块都存储当时的难度值
@@ -153,6 +153,7 @@ class Node:
             if orphan_block.previous_hash == parent_hash:
                 if self.verify_block(orphan_block):
                     self.blockchain.chain.append(orphan_block)
+                    print(f"Previous-Orphan Block added to some chain: {orphan_block.hash[:10]}...")
                     connected.append(orphan_hash)
                     # 递归处理
                     self.try_connect_orphans(orphan_block.hash)
@@ -199,15 +200,23 @@ class Node:
         """验证区块
         1. 验证难度值是否符合网络规则
         2. 验证区块哈希是否满足难度要求
+        3. 验证哈希计算结果是否正确
         """
         # 验证难度值
         expected_difficulty = self.calculate_expected_difficulty(block)
         if block.difficulty != expected_difficulty:
             print(f"Invalid difficulty: expected {expected_difficulty}, got {block.difficulty}")
             return False
+        # 验证哈希是否满足难度要求
+        if not block.hash.startswith(block.difficulty):
+            return False
+        # 验证哈希计算结果
+        calculated_hash = block.calculate_hash()
+        if calculated_hash != block.hash:
+            print(f"Invalid hash: calculated {calculated_hash}, got {block.hash}")
+            return False
 
-        # 验证哈希
-        return block.hash.startswith(block.difficulty)
+        return True
 
     def calculate_expected_difficulty(self, block: Block) -> str:
         """根据区块高度和时间戳计算期望的难度值"""
@@ -316,8 +325,7 @@ class MinerNode(Node):
         blocks_mined = 0
 
         while blocks_mined < num_blocks:
-            new_block = Block(f"Block {blocks_mined + 1}")
-            new_block.previous_hash = self.blockchain.chain[-1].hash
+            new_block = Block(f"Block {blocks_mined + 1}", self.blockchain.chain[-1].hash)
 
             # 修改：用新区块计算难度，而不是用链上最后一个区块
             current_difficulty = self.calculate_expected_difficulty(new_block)
@@ -354,33 +362,37 @@ if __name__ == "__main__":
 
 === Simulating Blockchain Network with Difficulty Sync ===
 Debug: block_height=2, interval=4
-Block mined with difficulty 4: 00005ca24361f6e2e55c89b28fc43ffc63690385683157e59be67bda881407da
+Block mined with difficulty 4: 00007f31206ab55d5eb5106122a1077347cde55102acd92fdda7e076077840f2
 Debug: block_height=3, interval=4
-Block mined with difficulty 4: 0000440732edd2bb573d0be79a3388db0e376520f5290f2f5ffb6e31b8fe5b72
+Block mined with difficulty 4: 0000e64f48a76cf6a68bd6743e86e3cac672bc5b328ad9776e3b7441306ff17a
 Debug: block_height=4, interval=4
-Debug: avg_block_time=0.038856666666666664, target=1
+Debug: avg_block_time=0.08248833333333333, target=1
 Debug: current difficulty=0000
-Block mined with difficulty 5: 00000a7e8b407d917bd0b72a4cb98a14ae939a732782f65c878dcd593eaa3993
+Block mined with difficulty 5: 00000084aef1522521656622ffaa6101107cbfad739df7c332c1053b46d04f07
 Debug: block_height=5, interval=4
-Block mined with difficulty 5: 00000be3ebc51c9cedbdca06e37ab3ed09b225065ec502b5d571b2670ffa6b44
+Block mined with difficulty 5: 0000062488502350bc3fe22c36ca5da3524e5a46ce077b4a276c40ac951e7c07
 Debug: block_height=6, interval=4
-Block mined with difficulty 5: 00000ce1ccb0d7c5fa24332afdd17e00355ed629e9b1a1ae375f745e8413d63a
+Block mined with difficulty 5: 000002e655dc94b6afa6e5f82a0c1a8a4f13d53dc39aba03ed3353429ff6e80e
 
 Validator: Starting validation process
 
 Node: Starting blockchain sync...
-Orphan block stored: 0000440732...
+Orphan block stored: 0000e64f48...
+Orphan block stored: 00000084ae...
+Orphan block stored: 000002e655...
+Orphan block stored: 0000062488...
 Debug: block_height=2, interval=4
-Block added to main chain: 00005ca243...
+Block added to main chain: 00007f3120...
 Debug: block_height=3, interval=4
+Previous-Orphan Block added to some chain: 0000e64f48...
 Debug: block_height=4, interval=4
-Debug: avg_block_time=0.038856666666666664, target=1
+Debug: avg_block_time=0.08248833333333333, target=1
 Debug: current difficulty=0000
-Block added to main chain: 00000a7e8b...
-Orphan block stored: 00000ce1cc...
+Previous-Orphan Block added to some chain: 00000084ae...
 Debug: block_height=5, interval=4
-Block added to main chain: 00000be3eb...
+Previous-Orphan Block added to some chain: 0000062488...
 Debug: block_height=6, interval=4
+Previous-Orphan Block added to some chain: 000002e655...
 Sync finished. Chain length: 6, Remaining orphans: 0
 Validator: Finished processing 5 blocks
 """
