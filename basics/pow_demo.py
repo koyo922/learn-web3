@@ -202,7 +202,7 @@ class Node:
         1. 验证难度值是否符合网络规则
         2. 验证区块哈希是否满足难度要求
         3. 验证哈希计算结果是否正确
-        4. 验证交易是否有双重支付（考虑确认数）
+        4. 验证交易是否有双重支付
         """
         # 验证难度值
         expected_difficulty = self.calculate_expected_difficulty(block)
@@ -218,34 +218,40 @@ class Node:
             print(f"Invalid hash: calculated {calculated_hash}, got {block.hash}")
             return False
 
-        # 找到此区块在链上的位置
-        chain_position = -1
+        # 找到此区块将要插入的位置
+        parent_position = -1
+        current_position = len(self.blockchain.chain)  # 当前区块将在链上的位置
         for i, b in enumerate(self.blockchain.chain):
             if b.hash == block.previous_hash:
-                chain_position = i
+                parent_position = i
+                current_position = i + 1
                 break
 
-        if chain_position == -1:
-            return True  # 可能是孤块，先接受它
+        if parent_position == -1:
+            print(f"Debug: Block {block.hash[:8]} is orphan, parent not found")
+            return True
 
-        # 计算可用余额（考虑确认数）
+        print(f"\nDebug: Verifying block at position {current_position}")
+        print(f"Debug: Parent block is at position {parent_position}")
+
+        # 计算可用余额
         spent_outputs = {}
         # 创世区块奖励直接可用
         genesis = self.blockchain.chain[0]
         spent_outputs[genesis.miner_address] = genesis.block_reward
+        print(f"Debug: Initial balance from genesis: {genesis.miner_address[:8]} = {genesis.block_reward}")
 
         # 遍历到父区块位置的所有交易
-        for i in range(1, chain_position + 1):
+        for i in range(1, current_position):
             b = self.blockchain.chain[i]
-            # 只统计已确认的区块（至少2个确认）
-            if chain_position - i >= 2:
-                if b.miner_address in spent_outputs:
-                    spent_outputs[b.miner_address] += b.block_reward
-                else:
-                    spent_outputs[b.miner_address] = b.block_reward
+            print(f"\nDebug: Checking block {i} (confirmations: {current_position - i})")
 
+            # 只统计已确认的区块
+            if current_position - i >= 2:
+                print(f"Debug: Block {i} is confirmed")
                 for tx in b.data:
                     if isinstance(tx, Transaction):
+                        print(f"Debug: Processing tx: {tx.sender[:8]} -> {tx.receiver[:8]} = {tx.amount} (fee: {tx.fee})")
                         if tx.sender in spent_outputs:
                             spent_outputs[tx.sender] -= (tx.amount + tx.fee)
                         if tx.receiver in spent_outputs:
@@ -253,18 +259,29 @@ class Node:
                         else:
                             spent_outputs[tx.receiver] = tx.amount
                         spent_outputs[b.miner_address] = spent_outputs.get(b.miner_address, 0) + tx.fee
+                spent_outputs[b.miner_address] = spent_outputs.get(b.miner_address, 0) + b.block_reward
+                print(f"Debug: After block {i}, balances: {[(k[:8], v) for k, v in spent_outputs.items()]}")
+            else:
+                print(f"Debug: Block {i} not confirmed yet")
 
-        # 验证当前区块的交易
+        print("\nDebug: Verifying transactions in current block:")
+        # 验证当前区块的交易，同时更新临时余额状态
+        temp_outputs = spent_outputs.copy()  # 创建临时余额状态
         for tx in block.data:
             if isinstance(tx, Transaction):
-                sender_balance = spent_outputs.get(tx.sender, 0)
+                sender_balance = temp_outputs.get(tx.sender, 0)  # 使用临时状态
+                print(f"Debug: Checking tx: {tx.sender[:8]} -> {tx.receiver[:8]} = {tx.amount} (fee: {tx.fee})")
+                print(f"Debug: Sender {tx.sender[:8]} balance: {sender_balance}")
                 if sender_balance < (tx.amount + tx.fee):
                     print(f"Double spend detected: {tx.sender} tried to spend more than their balance")
                     print(f"Balance: {sender_balance}, Trying to spend: {tx.amount + tx.fee}")
                     return False
-                spent_outputs[tx.sender] -= (tx.amount + tx.fee)
-                spent_outputs[tx.receiver] = spent_outputs.get(tx.receiver, 0) + tx.amount
-                spent_outputs[block.miner_address] = spent_outputs.get(block.miner_address, 0) + tx.fee
+                    
+                # 更新临时余额状态
+                temp_outputs[tx.sender] = sender_balance - (tx.amount + tx.fee)
+                temp_outputs[tx.receiver] = temp_outputs.get(tx.receiver, 0) + tx.amount
+                temp_outputs[block.miner_address] = temp_outputs.get(block.miner_address, 0) + tx.fee
+                print(f"Debug: After tx, temp balances: {[(k[:8], v) for k, v in temp_outputs.items()]}")
 
         return True
 
