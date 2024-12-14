@@ -22,6 +22,8 @@ class Block:
         self.timestamp = datetime.datetime.now()
         self.nonce = 0
         self.difficulty = "0000"  # 每个区块都存储当时的难度值
+        self.block_reward = 50  # 比特币最初的区块奖励是50 BTC
+        self.miner_address = None  # 记录获得奖励的矿工地址
         self.hash = self.calculate_hash()
 
     def calculate_hash(self):
@@ -315,21 +317,68 @@ class Node:
         return adjustment_block.difficulty
 
 
-class MinerNode(Node):
+class Transaction:
+    def __init__(self, sender: str, receiver: str, amount: float, fee: float):
+        self.sender = sender
+        self.receiver = receiver
+        self.amount = amount
+        self.fee = fee
+
+
+class TransactionPool:
+    """模拟内存池，存储待确认的交易"""
+
     def __init__(self):
+        self.pending_transactions = []
+
+    def add_transaction(self, tx: Transaction):
+        self.pending_transactions.append(tx)
+
+    def get_transactions(self, max_count: int = 3) -> list[Transaction]:
+        """获取待打包的交易，按手续费从高到低排序"""
+        sorted_txs = sorted(
+            self.pending_transactions,
+            key=lambda tx: tx.fee,
+            reverse=True
+        )
+        return sorted_txs[:max_count]
+
+    def remove_transactions(self, txs: list[Transaction]):
+        """从交易池中移除已打包的交易"""
+        for tx in txs:
+            if tx in self.pending_transactions:
+                self.pending_transactions.remove(tx)
+
+
+class MinerNode(Node):
+    def __init__(self, address: str):
         super().__init__()
-        self.is_mining = True
+        self.address = address
+        self.balance = 0
+        self.mempool = TransactionPool()
 
     def start_mining(self, num_blocks: int = 3) -> list[Block]:
         mined_blocks = []
         blocks_mined = 0
 
         while blocks_mined < num_blocks:
-            new_block = Block(f"Block {blocks_mined + 1}", self.blockchain.chain[-1].hash)
+            # 从交易池获取待打包交易
+            transactions = self.mempool.get_transactions()
 
-            # 修改：用新区块计算难度，而不是用链上最后一个区块
+            new_block = Block(transactions, self.blockchain.chain[-1].hash)
+            new_block.miner_address = self.address
+
+            tx_fees = sum(tx.fee for tx in transactions)
+            total_reward = new_block.block_reward + tx_fees
+
             current_difficulty = self.calculate_expected_difficulty(new_block)
             new_block.mine_block(current_difficulty)
+
+            self.balance += total_reward
+            print(f"Miner {self.address[:8]} earned {total_reward} coins! (Block reward: {new_block.block_reward}, Fees: {tx_fees})")
+
+            # 从交易池移除已打包的交易
+            self.mempool.remove_transactions(transactions)
 
             self.blockchain.chain.append(new_block)
             mined_blocks.append(new_block)
@@ -348,14 +397,26 @@ class ValidatorNode(Node):
 if __name__ == "__main__":
     print("=== Simulating Blockchain Network with Difficulty Sync ===")
 
-    # 1. 矿工挖出新区块
-    miner = MinerNode()
-    new_blocks = miner.start_mining(num_blocks=5)
+    # 1. 创建一些测试交易
+    mempool = TransactionPool()
+    test_transactions = [
+        Transaction("Alice", "Bob", 1.5, 0.1),
+        Transaction("Bob", "Charlie", 2.0, 0.15),
+        Transaction("Charlie", "Dave", 0.5, 0.05),
+        Transaction("Dave", "Alice", 1.0, 0.2),
+    ]
+    for tx in test_transactions:
+        mempool.add_transaction(tx)
 
-    # 2. 验证节点同步这些区块
+    # 2. 矿工开始挖矿
+    miner = MinerNode("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")
+    miner.mempool = mempool  # 设置交易池
+    new_blocks = miner.start_mining(num_blocks=5)
+    print(f"Miner's final balance: {miner.balance} coins")
+
+    # 3. 验证节点验证这些区块
     validator = ValidatorNode()
-    # mock shuffle the blocks
-    random.shuffle(new_blocks)
+    random.shuffle(new_blocks)  # 模拟网络传输顺序随机
     validator.start_validating(new_blocks)
 
 """
