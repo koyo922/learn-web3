@@ -202,7 +202,7 @@ class Node:
         1. 验证难度值是否符合网络规则
         2. 验证区块哈希是否满足难度要求
         3. 验证哈希计算结果是否正确
-        4. 验证交易是否有双重支付
+        4. 验证交易是否有双重支付（考虑确认数）
         """
         # 验证难度值
         expected_difficulty = self.calculate_expected_difficulty(block)
@@ -218,38 +218,41 @@ class Node:
             print(f"Invalid hash: calculated {calculated_hash}, got {block.hash}")
             return False
 
-        # 找到此区块在链上的位置（如果是孤块，使用其父区块位置）
+        # 找到此区块在链上的位置
         chain_position = -1
         for i, b in enumerate(self.blockchain.chain):
             if b.hash == block.previous_hash:
                 chain_position = i
                 break
 
-        # 如果找不到父区块，可能是孤块，暂时放入孤块池
         if chain_position == -1:
-            return True
+            return True  # 可能是孤块，先接受它
 
-        # 检查双重支付，考虑链上顺序
+        # 计算可用余额（考虑确认数）
         spent_outputs = {}
-
-        # 先加入创世区块奖励
+        # 创世区块奖励直接可用
         genesis = self.blockchain.chain[0]
         spent_outputs[genesis.miner_address] = genesis.block_reward
 
-        # 统计到父区块位置的所有交易
-        for i in range(chain_position + 1):
+        # 遍历到父区块位置的所有交易
+        for i in range(1, chain_position + 1):
             b = self.blockchain.chain[i]
-            for tx in b.data:
-                if isinstance(tx, Transaction):
-                    if tx.sender in spent_outputs:
-                        spent_outputs[tx.sender] -= (tx.amount + tx.fee)
-                    if tx.receiver in spent_outputs:
-                        spent_outputs[tx.receiver] = spent_outputs.get(tx.receiver, 0) + tx.amount
-                    if b.miner_address in spent_outputs:
+            # 只统计已确认的区块（至少2个确认）
+            if chain_position - i >= 2:
+                if b.miner_address in spent_outputs:
+                    spent_outputs[b.miner_address] += b.block_reward
+                else:
+                    spent_outputs[b.miner_address] = b.block_reward
+
+                for tx in b.data:
+                    if isinstance(tx, Transaction):
+                        if tx.sender in spent_outputs:
+                            spent_outputs[tx.sender] -= (tx.amount + tx.fee)
+                        if tx.receiver in spent_outputs:
+                            spent_outputs[tx.receiver] = spent_outputs.get(tx.receiver, 0) + tx.amount
+                        else:
+                            spent_outputs[tx.receiver] = tx.amount
                         spent_outputs[b.miner_address] = spent_outputs.get(b.miner_address, 0) + tx.fee
-            # 添加区块奖励（除创世区块外）
-            if i > 0 and chain_position - i >= 2:  # 已确认的区块
-                spent_outputs[b.miner_address] = spent_outputs.get(b.miner_address, 0) + b.block_reward
 
         # 验证当前区块的交易
         for tx in block.data:
@@ -416,14 +419,51 @@ class TransactionPool:
     def add_transaction(self, tx: Transaction):
         self.pending_transactions.append(tx)
 
-    def get_transactions(self, max_count: int = 3) -> list[Transaction]:
-        """获取待打包的交易，按手续费从高到低排序"""
-        sorted_txs = sorted(
-            self.pending_transactions,
-            key=lambda tx: tx.fee,
-            reverse=True
-        )
-        return sorted_txs[:max_count]
+    def get_transactions(self, chain: list[Block], max_count: int = 3) -> list[Transaction]:
+        """获取可以打包的交易，需要考虑确认数"""
+        valid_txs = []
+        current_height = len(chain)
+
+        # 计算当前可用余额（考虑确认数）
+        balances = {}
+        # 创世区块奖励直接可用
+        genesis = chain[0]
+        balances[genesis.miner_address] = genesis.block_reward
+
+        # 遍历其他区块
+        for i, block in enumerate(chain[1:], 1):
+            # 只统计已确认的区块（至少2个确认）
+            if current_height - i >= 2:
+                if block.miner_address in balances:
+                    balances[block.miner_address] += block.block_reward
+                else:
+                    balances[block.miner_address] = block.block_reward
+
+                for tx in block.data:
+                    if isinstance(tx, Transaction):
+                        # 更新发送方余额
+                        if tx.sender in balances:
+                            balances[tx.sender] -= (tx.amount + tx.fee)
+                        # 更新接收方余额
+                        if tx.receiver in balances:
+                            balances[tx.receiver] += tx.amount
+                        else:
+                            balances[tx.receiver] = tx.amount
+                        # 更新矿工手续费
+                        balances[block.miner_address] += tx.fee
+
+        # 根据可用余额筛选交易
+        for tx in sorted(self.pending_transactions, key=lambda t: t.fee, reverse=True):
+            sender_balance = balances.get(tx.sender, 0)
+            if sender_balance >= (tx.amount + tx.fee):
+                valid_txs.append(tx)
+                # 更新余额状态
+                balances[tx.sender] -= (tx.amount + tx.fee)
+                balances[tx.receiver] = balances.get(tx.receiver, 0) + tx.amount
+                if len(valid_txs) >= max_count:
+                    break
+
+        return valid_txs
 
     def remove_transactions(self, txs: list[Transaction]):
         """从交易池中移除已打包的交易"""
@@ -444,45 +484,26 @@ class MinerNode(Node):
         blocks_mined = 0
 
         while blocks_mined < num_blocks:
-            # 从交易池获取待打包交易
-            transactions = self.mempool.get_transactions()
-            valid_transactions = []
+            # 从交易池获取待打包交易，传入当前链状态
+            transactions = self.mempool.get_transactions(self.blockchain.chain)
 
-            if transactions:
-                # 初始化余额状态（从创世区块开始）
-                spent_outputs = {}
-                genesis = self.blockchain.chain[0]
-                spent_outputs[genesis.miner_address] = genesis.block_reward
-
-                # 逐个验证交易
-                for tx in transactions:
-                    sender_balance = spent_outputs.get(tx.sender, 0)
-                    if sender_balance >= (tx.amount + tx.fee):
-                        valid_transactions.append(tx)
-                        # 更新余额状态
-                        spent_outputs[tx.sender] = sender_balance - (tx.amount + tx.fee)
-                        spent_outputs[tx.receiver] = spent_outputs.get(tx.receiver, 0) + tx.amount
-                    else:
-                        print(f"Skipping invalid transaction: {tx.sender} has insufficient balance")
-
-            # 创建新区块（无论是否有有效交易）
-            new_block = Block(valid_transactions, self.blockchain.chain[-1].hash)
+            new_block = Block(transactions, self.blockchain.chain[-1].hash)
             new_block.miner_address = self.address
 
-            tx_fees = sum(tx.fee for tx in valid_transactions)
+            tx_fees = sum(tx.fee for tx in transactions)
             total_reward = new_block.block_reward + tx_fees
 
             current_difficulty = self.calculate_expected_difficulty(new_block)
             new_block.mine_block(current_difficulty)
 
             self.balance += total_reward
-            if valid_transactions:
+            if transactions:
                 print(f"Miner {self.address[:8]} earned {total_reward} coins! (Block reward: {new_block.block_reward}, Fees: {tx_fees})")
             else:
                 print(f"Miner {self.address[:8]} earned {total_reward} coins! (Empty block, only reward)")
 
             # 从交易池移除已打包的交易
-            self.mempool.remove_transactions(valid_transactions)
+            self.mempool.remove_transactions(transactions)
 
             self.blockchain.chain.append(new_block)
             mined_blocks.append(new_block)
