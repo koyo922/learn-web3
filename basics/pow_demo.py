@@ -249,6 +249,11 @@ class Node:
             # 只统计已确认的区块
             if current_position - i >= 2:
                 print(f"Debug: Block {i} is confirmed")
+                # 先加入区块奖励
+                spent_outputs[b.miner_address] = spent_outputs.get(b.miner_address, 0) + b.block_reward
+                print(f"Debug: Added block reward: {b.miner_address[:8]} += {b.block_reward}")
+                
+                # 处理交易
                 for tx in b.data:
                     if isinstance(tx, Transaction):
                         print(f"Debug: Processing tx: {tx.sender[:8]} -> {tx.receiver[:8]} = {tx.amount} (fee: {tx.fee})")
@@ -258,8 +263,7 @@ class Node:
                             spent_outputs[tx.receiver] = spent_outputs.get(tx.receiver, 0) + tx.amount
                         else:
                             spent_outputs[tx.receiver] = tx.amount
-                        spent_outputs[b.miner_address] = spent_outputs.get(b.miner_address, 0) + tx.fee
-                spent_outputs[b.miner_address] = spent_outputs.get(b.miner_address, 0) + b.block_reward
+                        spent_outputs[b.miner_address] += tx.fee  # 只加手续费
                 print(f"Debug: After block {i}, balances: {[(k[:8], v) for k, v in spent_outputs.items()]}")
             else:
                 print(f"Debug: Block {i} not confirmed yet")
@@ -513,7 +517,7 @@ class MinerNode(Node):
             current_difficulty = self.calculate_expected_difficulty(new_block)
             new_block.mine_block(current_difficulty)
 
-            self.balance += total_reward
+            self.balance = self.get_balance(self.address)
             if transactions:
                 print(f"Miner {self.address[:8]} earned {total_reward} coins! (Block reward: {new_block.block_reward}, Fees: {tx_fees})")
             else:
@@ -562,40 +566,131 @@ if __name__ == "__main__":
     validator.start_validating(new_blocks)
 
 """
-
 === Simulating Blockchain Network with Difficulty Sync ===
 Debug: block_height=2, interval=4
-Block mined with difficulty 4: 00007f31206ab55d5eb5106122a1077347cde55102acd92fdda7e076077840f2
+Block mined with difficulty 4: 00006526ffc40641c711aa879dba670018141d9821a382dd73bce2888fec9e13
+Miner 1A1zP1eP earned 50.1 coins! (Block reward: 50, Fees: 0.1)
 Debug: block_height=3, interval=4
-Block mined with difficulty 4: 0000e64f48a76cf6a68bd6743e86e3cac672bc5b328ad9776e3b7441306ff17a
+Block mined with difficulty 4: 0000920db510b57262c67849e82461c75f1682627a8bef2da6d8812997f64320
+Miner 1A1zP1eP earned 50 coins! (Empty block, only reward)
 Debug: block_height=4, interval=4
-Debug: avg_block_time=0.08248833333333333, target=1
+Debug: avg_block_time=0.148396, target=1
 Debug: current difficulty=0000
-Block mined with difficulty 5: 00000084aef1522521656622ffaa6101107cbfad739df7c332c1053b46d04f07
+Block mined with difficulty 5: 00000d9d764ce0f4c981fd1478d6926cabfc1fe8f51480819398e60d6f8bf013
+Miner 1A1zP1eP earned 50.2 coins! (Block reward: 50, Fees: 0.2)
 Debug: block_height=5, interval=4
-Block mined with difficulty 5: 0000062488502350bc3fe22c36ca5da3524e5a46ce077b4a276c40ac951e7c07
+Block mined with difficulty 5: 00000a4f6a7ef88e8da45ab1912d7139b0d573274fbf487f8bb7b4794cf8899d
+Miner 1A1zP1eP earned 50 coins! (Empty block, only reward)
 Debug: block_height=6, interval=4
-Block mined with difficulty 5: 000002e655dc94b6afa6e5f82a0c1a8a4f13d53dc39aba03ed3353429ff6e80e
+Block mined with difficulty 5: 00000cf2e877832e7bda7d3cf945e041005da13a2c4f1792ceb62449d258d5e7
+Miner 1A1zP1eP earned 50 coins! (Empty block, only reward)
+Miner's final balance: 190.20000000000002 coins
 
 Validator: Starting validation process
 
 Node: Starting blockchain sync...
-Orphan block stored: 0000e64f48...
-Orphan block stored: 00000084ae...
-Orphan block stored: 000002e655...
-Orphan block stored: 0000062488...
 Debug: block_height=2, interval=4
-Block added to main chain: 00007f3120...
+
+Debug: Verifying block at position 1
+Debug: Parent block is at position 0
+Debug: Initial balance from genesis: 1A1zP1eP = 50
+
+Debug: Verifying transactions in current block:
+Debug: Checking tx: 1A1zP1eP -> Alice = 10.0 (fee: 0.1)
+Debug: Sender 1A1zP1eP balance: 50
+Debug: After tx, temp balances: [('1A1zP1eP', 40.0), ('Alice', 10.0)]
+Block added to main chain: 00006526ff...
+Debug: Block 00000a4f is orphan, parent not found
+Orphan block stored: 00000a4f6a...
+Debug: Block 00000cf2 is orphan, parent not found
+Orphan block stored: 00000cf2e8...
 Debug: block_height=3, interval=4
-Previous-Orphan Block added to some chain: 0000e64f48...
+
+Debug: Verifying block at position 2
+Debug: Parent block is at position 1
+Debug: Initial balance from genesis: 1A1zP1eP = 50
+
+Debug: Checking block 1 (confirmations: 1)
+Debug: Block 1 not confirmed yet
+
+Debug: Verifying transactions in current block:
+Block added to main chain: 0000920db5...
 Debug: block_height=4, interval=4
-Debug: avg_block_time=0.08248833333333333, target=1
+Debug: avg_block_time=0.148396, target=1
 Debug: current difficulty=0000
-Previous-Orphan Block added to some chain: 00000084ae...
+
+Debug: Verifying block at position 3
+Debug: Parent block is at position 2
+Debug: Initial balance from genesis: 1A1zP1eP = 50
+
+Debug: Checking block 1 (confirmations: 2)
+Debug: Block 1 is confirmed
+Debug: Added block reward: 1A1zP1eP += 50
+Debug: Processing tx: 1A1zP1eP -> Alice = 10.0 (fee: 0.1)
+Debug: After block 1, balances: [('1A1zP1eP', 90.0), ('Alice', 10.0)]
+
+Debug: Checking block 2 (confirmations: 1)
+Debug: Block 2 not confirmed yet
+
+Debug: Verifying transactions in current block:
+Debug: Checking tx: Alice -> Bob = 5.0 (fee: 0.15)
+Debug: Sender Alice balance: 10.0
+Debug: After tx, temp balances: [('1A1zP1eP', 90.15), ('Alice', 4.85), ('Bob', 5.0)]
+Debug: Checking tx: Bob -> Charlie = 2.0 (fee: 0.05)
+Debug: Sender Bob balance: 5.0
+Debug: After tx, temp balances: [('1A1zP1eP', 90.2), ('Alice', 4.85), ('Bob', 2.95), ('Charlie', 2.0)]
+Block added to main chain: 00000d9d76...
 Debug: block_height=5, interval=4
-Previous-Orphan Block added to some chain: 0000062488...
+
+Debug: Verifying block at position 4
+Debug: Parent block is at position 3
+Debug: Initial balance from genesis: 1A1zP1eP = 50
+
+Debug: Checking block 1 (confirmations: 3)
+Debug: Block 1 is confirmed
+Debug: Added block reward: 1A1zP1eP += 50
+Debug: Processing tx: 1A1zP1eP -> Alice = 10.0 (fee: 0.1)
+Debug: After block 1, balances: [('1A1zP1eP', 90.0), ('Alice', 10.0)]
+
+Debug: Checking block 2 (confirmations: 2)
+Debug: Block 2 is confirmed
+Debug: Added block reward: 1A1zP1eP += 50
+Debug: After block 2, balances: [('1A1zP1eP', 140.0), ('Alice', 10.0)]
+
+Debug: Checking block 3 (confirmations: 1)
+Debug: Block 3 not confirmed yet
+
+Debug: Verifying transactions in current block:
+Previous-Orphan Block added to some chain: 00000a4f6a...
 Debug: block_height=6, interval=4
-Previous-Orphan Block added to some chain: 000002e655...
+
+Debug: Verifying block at position 5
+Debug: Parent block is at position 4
+Debug: Initial balance from genesis: 1A1zP1eP = 50
+
+Debug: Checking block 1 (confirmations: 4)
+Debug: Block 1 is confirmed
+Debug: Added block reward: 1A1zP1eP += 50
+Debug: Processing tx: 1A1zP1eP -> Alice = 10.0 (fee: 0.1)
+Debug: After block 1, balances: [('1A1zP1eP', 90.0), ('Alice', 10.0)]
+
+Debug: Checking block 2 (confirmations: 3)
+Debug: Block 2 is confirmed
+Debug: Added block reward: 1A1zP1eP += 50
+Debug: After block 2, balances: [('1A1zP1eP', 140.0), ('Alice', 10.0)]
+
+Debug: Checking block 3 (confirmations: 2)
+Debug: Block 3 is confirmed
+Debug: Added block reward: 1A1zP1eP += 50
+Debug: Processing tx: Alice -> Bob = 5.0 (fee: 0.15)
+Debug: Processing tx: Bob -> Charlie = 2.0 (fee: 0.05)
+Debug: After block 3, balances: [('1A1zP1eP', 190.20000000000002), ('Alice', 4.85), ('Bob', 2.95), ('Charlie', 2.0)]
+
+Debug: Checking block 4 (confirmations: 1)
+Debug: Block 4 not confirmed yet
+
+Debug: Verifying transactions in current block:
+Previous-Orphan Block added to some chain: 00000cf2e8...
 Sync finished. Chain length: 6, Remaining orphans: 0
 Validator: Finished processing 5 blocks
 """
