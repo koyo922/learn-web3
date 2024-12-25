@@ -1,0 +1,26 @@
+dependencies:
+  - smartcontractkit/chainlink-brownie-contracts@0.8.0
+
+compiler:
+  solc:
+    remappings:
+      - "@chainlink=smartcontractkit/chainlink-brownie-contracts@0.8.0"
+
+dotenv: ../../.env
+wallets:
+  from_key: ${PRIVATE_KEY}
+
+networks:
+  sepolia:
+    eth_usd_price_feed: "0x694AA1769357215DE4FAC081bf1f309aDC325306"
+    verify: True
+  development:
+    verify: False
+
+# for contract verification on sepolia
+etherscan:
+  api-key: ${ETHERSCAN_TOKEN}
+  verify: True
+  # api_url: "https://api-sepolia.etherscan.io/api"
+  # important, default has not `/api` suffix is wrong
+  # execute bash: brownie networks modify sepolia explorer=https://api-sepolia.etherscan.io/api
