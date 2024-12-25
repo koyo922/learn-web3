@@ -33,17 +33,15 @@ with open("compiled_code.json", "w") as file:
 bytecode = compiled_sol["contracts"]["SimpleStorage.sol"]["SimpleStorage"]["evm"]["bytecode"]["object"]
 abi = compiled_sol["contracts"]["SimpleStorage.sol"]["SimpleStorage"]["abi"]
 
-# connect to ganache
-w3 = Web3(Web3.HTTPProvider("http://localhost:8545"))
-actual_chain_id = w3.eth.chain_id
-print(f"Connected to network with chain ID: {actual_chain_id}")
-chain_id = 1337  # Ganache's actual chain ID (different from network ID shown in GUI)
+# connect to chain
+chain_url = os.getenv("CHAIN_URL")
 my_address = os.getenv("MY_ADDRESS")
 private_key = os.getenv("PRIVATE_KEY")
+if not all([chain_url, my_address, private_key]):
+    raise ValueError("Please set CHAIN_URL,MY_ADDRESS, and PRIVATE_KEY in .env file")
 
-if not my_address or not private_key:
-    raise ValueError("Please set MY_ADDRESS and PRIVATE_KEY in .env file")
-
+w3 = Web3(Web3.HTTPProvider(chain_url))
+chain_id = w3.eth.chain_id
 # create the contract in python
 SimpleStorage = w3.eth.contract(abi=abi, bytecode=bytecode)
 
