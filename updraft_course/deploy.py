@@ -34,7 +34,7 @@ bytecode = compiled_sol["contracts"]["SimpleStorage.sol"]["SimpleStorage"]["evm"
 abi = compiled_sol["contracts"]["SimpleStorage.sol"]["SimpleStorage"]["abi"]
 
 # connect to ganache
-w3 = Web3(Web3.HTTPProvider("http://localhost:7545"))
+w3 = Web3(Web3.HTTPProvider("http://localhost:8545"))
 actual_chain_id = w3.eth.chain_id
 print(f"Connected to network with chain ID: {actual_chain_id}")
 chain_id = 1337  # Ganache's actual chain ID (different from network ID shown in GUI)
