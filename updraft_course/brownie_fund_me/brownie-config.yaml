@@ -14,13 +14,12 @@ networks:
   sepolia:
     eth_usd_price_feed: "0x694AA1769357215DE4FAC081bf1f309aDC325306"
     verify: True
-  development:
-    verify: False
-
-# for contract verification on sepolia
-etherscan:
-  api-key: ${ETHERSCAN_TOKEN}
-  verify: True
-  # api_url: "https://api-sepolia.etherscan.io/api"
-  # important, default has not `/api` suffix is wrong
-  # execute bash: brownie networks modify sepolia explorer=https://api-sepolia.etherscan.io/api
+# important, default has not `/api` suffix is wrong
+# $ brownie networks modify sepolia explorer=https://api-sepolia.etherscan.io/api
+# to make brownie remember the deployment on local network
+# $ brownie networks add Ethereum ganache-gui host=http://127.0.0.1:7545 chainid=5777
+# $ brownie networks add Ethereum ganache-cli host=http://127.0.0.1:8545 chainid=1337
+# to list all networks detail
+# $ brownie networks list true | egrep -C 5 'ganache'
+# to use ganache-gui in brownie
+# $ brownie run scripts/deploy.py --network=ganache-gui

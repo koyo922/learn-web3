@@ -9,8 +9,29 @@ contract FundMe {
     address[] public funders;
     address public owner;
 
-    constructor() {
+    /* Gas 优化说明：
+    使用状态变量 vs 局部变量的取舍:
+    1. 状态变量读取成本: SLOAD = 2100 gas (cold access)
+       - pure/view 函数调用不收费，因为它们不上链:
+         * view: 只读合约状态（像看监控录像）
+         * pure: 完全不碰状态（像纯数学计算）
+         * 为什么读取不收费：
+           - 读取确实消耗节点计算资源
+           - 但由本地节点执行，不需要全网共识
+           - 如果被非view函数调用，会产生gas成本
+       - 高频/循环调用场景应当使用内存变量缓存
+    2. 状态变量存储成本:
+       - 每个存储槽(32字节): 20,000 gas
+       - 每字节部署成本: 200 gas
+    3. 当前选择:
+       - 优先可维护性，将 priceFeed 作为状态变量
+       - 非核心合约，gas 优化非首要考虑
+    */
+    AggregatorV3Interface public priceFeed;
+
+    constructor(address _priceFeedAddress) {
         owner = msg.sender;
+        priceFeed = AggregatorV3Interface(_priceFeedAddress);
     }
 
     function fund() public payable {
@@ -24,16 +45,10 @@ contract FundMe {
     }
 
     function getVersion() public view returns (uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(
-            0x8A753747A1Fa494EC906cE90E9f37563A8AF630e
-        );
         return priceFeed.version();
     }
 
     function getPrice() public view returns (uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(
-            0x8A753747A1Fa494EC906cE90E9f37563A8AF630e
-        );
         (, int256 answer, , , ) = priceFeed.latestRoundData();
         return uint256(answer * 10000000000);
     }
