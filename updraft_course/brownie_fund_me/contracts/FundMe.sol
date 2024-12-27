@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.19;
 
 // config to avoid warning, ref https://n4n0b1t3.medium.com/how-to-make-vsc-solidity-lint-recognize-your-chainlink-and-openzeppelin-libraries-73775129261c
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
