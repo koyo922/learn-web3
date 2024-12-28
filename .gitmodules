@@ -4,3 +4,6 @@
 [submodule "updraft_course/foundry_fund_me/lib/chainlink-brownie-contracts"]
 	path = updraft_course/foundry_fund_me/lib/chainlink-brownie-contracts
 	url = https://github.com/smartcontractkit/chainlink-brownie-contracts
+[submodule "updraft_course/foundry_fund_me/lib/foundry-devops"]
+	path = updraft_course/foundry_fund_me/lib/foundry-devops
+	url = https://github.com/Cyfrin/foundry-devops

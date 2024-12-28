@@ -7,8 +7,8 @@ pragma solidity ^0.8.19;
 // 注：测试合约继承了 forge-std/Test.sol 的所有断言函数
 // 无需单独导入
 import {Test, console} from "forge-std/Test.sol";
-import {FundMe} from "../src/FundMe.sol";
-import {DeployFundMe} from "../script/DeployFundMe.s.sol";
+import {FundMe} from "../../src/FundMe.sol";
+import {DeployFundMe} from "../../script/DeployFundMe.s.sol";
 
 contract FundMeTest is Test {
     FundMe fundMe;
