@@ -9,7 +9,7 @@ load_dotenv()
 
 SOLIDITY_VERSION = "0.8.0"
 
-with open("./updraft_course/SimpleStorage.sol", "r") as file:
+with open("./updraft_course/web3_py_ss/SimpleStorage.sol", "r") as file:
     simple_storage_file = file.read()
 
 solcx.install_solc(SOLIDITY_VERSION)

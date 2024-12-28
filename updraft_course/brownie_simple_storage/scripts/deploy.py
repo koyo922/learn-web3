@@ -1,4 +1,11 @@
 """
+pnpm install -g ganache  # no longer named ganache-cli
+ganache --deterministic
+pip3 install eth-brownie
+
+cd updraft_course/brownie_simple_storage
+brownie init
+
 brownie accounts new account1  # type in the private key in .env
 brownie scripts/deploy.py  # 会自动拉起 ganache, 或者attach到已经启动的ganache
 """
