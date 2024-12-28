@@ -8,15 +8,14 @@ pragma solidity ^0.8.19;
 // 无需单独导入
 import {Test, console} from "forge-std/Test.sol";
 import {FundMe} from "../src/FundMe.sol";
+import {DeployFundMe} from "../script/DeployFundMe.s.sol";
 
 contract FundMeTest is Test {
     FundMe fundMe;
-    // Sepolia ETH/USD Price Feed 地址
-    address constant PRICE_FEED_ADDRESS =
-        0x694AA1769357215DE4FAC081bf1f309aDC325306;
 
     function setUp() external {
-        fundMe = new FundMe(PRICE_FEED_ADDRESS);
+        DeployFundMe deployFundMe = new DeployFundMe();
+        fundMe = deployFundMe.run();
     }
 
     // 注：
@@ -26,8 +25,38 @@ contract FundMeTest is Test {
         assertEq(fundMe.MINIMUM_USD(), 5e18);
     }
 
-    function testOwnerIsTestObject() public view {
-        assertEq(fundMe.i_owner(), address(this));
+    function testOwnerIsDeployer() public view {
+        // 调用栈可视化：
+        // 部署过程：
+        // [Foundry Test Runner] ← 使用 anvil 第一个测试地址(0x1804c8AB...)作为发送者
+        //         ↓ 调用
+        // [FundMeTest.setUp()] ← msg.sender 是 Test Runner 地址
+        //         ↓ new
+        // [DeployFundMe.run()] ← msg.sender 是 FundMeTest 地址
+        //         ↓ vm.startBroadcast() ← 这里开始改变了正常的 msg.sender 传递链
+        // [broadcast context start] ← 进入广播上下文
+        //     - 此上下文中的所有交易的 msg.sender 都被强制设为广播地址
+        //     - 这打破了普通的调用链规则，否则应该是 DeployFundMe 地址
+        // [new FundMe()] ← msg.sender 被强制设为广播地址 0x1804c8AB...
+        // [broadcast context end]
+        //
+        // 注：如果不使用 broadcast：
+        // - FundMe 构造函数中的 msg.sender 应该是 DeployFundMe 的地址
+        // - 这会导致测试失败，因为 i_owner 就不是 Test Runner 地址了
+        //
+        // 测试上下文：
+        // [Foundry Test Runner] ← 仍然使用 anvil 第一个测试地址
+        //         ↓ 调用
+        // [FundMeTest.testOwnerIsDeployer()] ← msg.sender 是 Test Runner 地址
+        //
+        // 为什么测试能通过？
+        // 1. 部署时：broadcast 强制 FundMe 的 i_owner 设为 anvil 第一个地址
+        // 2. 测试时：Test Runner 使用相同的 anvil 第一个地址调用测试
+        // 3. 所以 fundMe.i_owner() == msg.sender == 0x1804c8AB...
+        console.log("address(this):", address(this));
+        console.log("msg.sender:", msg.sender);
+        console.log("fundMe.i_owner():", fundMe.i_owner());
+        assertEq(fundMe.i_owner(), msg.sender);
     }
 
     function testPriceFeedVersionIsFour() public view {
