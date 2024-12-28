@@ -12,10 +12,14 @@ import {DeployFundMe} from "../script/DeployFundMe.s.sol";
 
 contract FundMeTest is Test {
     FundMe fundMe;
+    address alice = makeAddr("alice");
+    uint256 constant STARTING_BALANCE = 10 ether;
+    uint256 constant SEND_VALUE = 0.1 ether;
 
     function setUp() external {
         DeployFundMe deployFundMe = new DeployFundMe();
         fundMe = deployFundMe.run();
+        vm.deal(alice, STARTING_BALANCE);
     }
 
     // 注：
@@ -53,13 +57,25 @@ contract FundMeTest is Test {
         // 1. 部署时：broadcast 强制 FundMe 的 i_owner 设为 anvil 第一个地址
         // 2. 测试时：Test Runner 使用相同的 anvil 第一个地址调用测试
         // 3. 所以 fundMe.i_owner() == msg.sender == 0x1804c8AB...
-        console.log("address(this):", address(this));
-        console.log("msg.sender:", msg.sender);
-        console.log("fundMe.i_owner():", fundMe.i_owner());
+        // console.log("address(this):", address(this));
+        // console.log("msg.sender:", msg.sender);
+        // console.log("fundMe.i_owner():", fundMe.i_owner());
         assertEq(fundMe.i_owner(), msg.sender);
     }
 
     function testPriceFeedVersionIsFour() public view {
         assertEq(fundMe.getVersion(), 4);
+    }
+
+    function testFundFailsWIthoutEnoughETH() public {
+        vm.expectRevert(); // <- The next line after this one should revert! If not test fails.
+        fundMe.fund{value: 0}(); // 显式传入 0 值，预期会 revert
+    }
+
+    function testFundUpdatesFundDataStructure() public {
+        vm.prank(alice);
+        fundMe.fund{value: SEND_VALUE}();
+        uint256 amountFunded = fundMe.getAddressToAmountFunded(alice);
+        assertEq(amountFunded, SEND_VALUE);
     }
 }
