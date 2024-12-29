@@ -12,12 +12,17 @@ error Raffle_NotEnoughEthSent();
  */
 contract Raffle {
     uint256 private immutable i_entranceFee;
+    // 抽奖间隔时间
+    uint256 private immutable i_interval;
     address payable[] private s_players;
+    uint256 private s_lastTimeStamp;
 
     event EnteredRaffle(address indexed player); // 带索引的参数(topics)更易于检索
 
-    constructor(uint256 entranceFee) {
+    constructor(uint256 entranceFee, uint256 interval) {
         i_entranceFee = entranceFee;
+        i_interval = interval;
+        s_lastTimeStamp = block.timestamp;
     }
 
     // external 比 public 更便宜
@@ -28,7 +33,13 @@ contract Raffle {
         emit EnteredRaffle(msg.sender);
     }
 
-    function pickWinner() public {}
+    // 1. Get a random number
+    // 2. Use the random number to pick a player
+    // 3. Automatically called
+    function pickWinner() external {
+        // check to see if enough time has passed
+        if (block.timestamp - s_lastTimeStamp < i_interval) revert();
+    }
 
     /** Getter Function */
 
