@@ -11,6 +11,7 @@ venv/
 # IDE
 .idea/
 .vscode/
+.previously_installed_extensions.txt
 
 # Solidity compilation output
 compiled_code.json 
@@ -23,9 +24,13 @@ yarn-error.log*
 package-lock.json
 yarn.lock 
 
+# System files
 .DS_Store
 
+# ZkSync
 zkout/
+updraft_course/foundry-full-course-cu/nfts-zksync-foundry/ 
+updraft_course/foundry-full-course-cu/nfts-zksync-hardhat/
 
 # Compiler files
 cache/
@@ -39,9 +44,21 @@ out/
 
 # Docs
 docs/
+updraft_course/foundry-full-course-cu/script.md
+updraft_course/foundry-full-course-cu/notes.md
+updraft_course/foundry-full-course-cu/tweet.md
 
 # Dependencies
 /lib/
 
 # Keystore
 .keystore/
+
+# Course specific
+updraft_course/foundry-full-course-cu/foundry*/
+updraft_course/foundry-full-course-cu/remix*/
+updraft_course/foundry-full-course-cu/html*/
+updraft_course/foundry-full-course-cu/background*
+updraft_course/foundry-full-course-cu/img/
+updraft_course/foundry-full-course-cu/brownie-contracts-nfts/
+updraft_course/foundry-full-course-cu/nfts-foundry-course/
