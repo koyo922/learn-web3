@@ -1,6 +1,7 @@
 // export const zkSyncContractAddress = "0x4B5DF730c2e6b28E17013A1485E5d9BC41Efe021"
 // export const contractAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
-export const contractAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+// CRITICAL: 合约地址需要与 Anvil 状态同步，每次重启 Anvil 需更新此地址
+export const contractAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
 export const abi = [
   {
     inputs: [
