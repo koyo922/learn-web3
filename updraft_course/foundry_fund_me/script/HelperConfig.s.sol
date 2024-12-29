@@ -38,7 +38,7 @@ contract HelperConfig is Script {
         // 2. 在不同合约的部署过程中需要重用同一个 price feed
         // 3. 在升级或维护脚本中避免重复部署
         //
-        // 注意：在测试环境中(如 FundMeTest.t.sol)这个检查实际上不起作用
+        // 注意：在测试环境中(如 test/unit/FundMe.t.sol)这个检查实际上不起作用
         // 因为：
         // 1. 每个测试函数执行前，setUp() 都会重新执行
         // 2. setUp() 会创建新的 DeployFundMe 和 HelperConfig 实例
