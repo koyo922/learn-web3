@@ -23,3 +23,22 @@ Layout of Functions:
 - private
 
 - view & pure functions
+
+# Cursor Prompting Handbook
+https://x.com/cj_zZZz/status/1873417529835622789
+
+## progress.md file
+
+At the end of every completed step record your work log in @progress.md file. 
+What features we implemented? What errors we encountered? How did we fixed all those errors.
+
+Answer these 3 questions in a step by step manner and DO NOT miss any information.
+
+## project-status.md file
+
+At the end of the session record your work log in @project-status.md file.
+
+First check @progress.md file to understand all the features we have implemented in this session.
+
+Then write a detailed session report which should provide detailed context for next work session.
+
