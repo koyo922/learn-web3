@@ -24,6 +24,9 @@ Layout of Functions:
 
 - view & pure functions
 
+Inside Functions:
+- CEI: Checks, Effects, Interactions
+
 # Cursor Prompting Handbook
 https://x.com/cj_zZZz/status/1873417529835622789
 
