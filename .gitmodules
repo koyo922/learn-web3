@@ -16,3 +16,6 @@
 [submodule "updraft_course/foundry_smark_contract_lottery/lib/chainlink"]
 	path = updraft_course/foundry_smark_contract_lottery/lib/chainlink
 	url = https://github.com/smartcontractkit/chainlink
+[submodule "updraft_course/foundry_smark_contract_lottery/lib/solmate"]
+	path = updraft_course/foundry_smark_contract_lottery/lib/solmate
+	url = https://github.com/transmissions11/solmate

@@ -3,8 +3,15 @@ pragma solidity ^0.8.19;
 
 import {Script} from "forge-std/Script.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+import {LinkToken} from "../test/mocks/LinkToken.sol";
 
-contract HelperConfig is Script {
+abstract contract CodeConstants {
+    uint256 public constant DEFAULT_ANVIL_KEY = 1;
+    uint256 public constant SEPOLIA_CHAIN_ID = 11155111;
+    uint256 public constant ANVIL_CHAIN_ID = 31337;
+}
+
+contract HelperConfig is Script, CodeConstants {
     error HelperConfig_ChainIdNotSupported(uint256 chainId);
 
     struct NetworkConfig {
@@ -14,13 +21,10 @@ contract HelperConfig is Script {
         bytes32 gasLane;
         uint256 subscriptionId;
         uint32 callbackGasLimit;
+        address link;
     }
 
     mapping(uint256 => NetworkConfig) public networkConfig;
-
-    uint256 public constant DEFAULT_ANVIL_KEY = 1;
-    uint256 public constant SEPOLIA_CHAIN_ID = 11155111;
-    uint256 public constant ANVIL_CHAIN_ID = 31337;
 
     constructor() {
         if (block.chainid == SEPOLIA_CHAIN_ID) {
@@ -43,8 +47,9 @@ contract HelperConfig is Script {
                 interval: 30, // 30 seconds
                 vrfCoordinator: 0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625, // Chainlink VRF Coordinator v2.5
                 gasLane: 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c, // 150 gwei Key Hash
-                subscriptionId: 0, // 需要用户自己创建和填写
-                callbackGasLimit: 500000 // 500,000 gas
+                subscriptionId: 9929970782370025809564082213265651764134854626883528169543351404708910376986,
+                callbackGasLimit: 500000, // 500,000 gas
+                link: 0x779877A7B0D9E8603169DdbD7836e478b4624789 // Chainlink LINK token
             });
     }
 
@@ -60,6 +65,7 @@ contract HelperConfig is Script {
             1e9, // gasPrice (1 gwei)
             1e18 // weiPerUnitLink (1 LINK = 1e18 wei)
         );
+        LinkToken link = new LinkToken();
         vm.stopBroadcast();
 
         return
@@ -69,7 +75,8 @@ contract HelperConfig is Script {
                 vrfCoordinator: address(coordinator),
                 gasLane: 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c, // anything here works on anvil
                 subscriptionId: 0, // 需要用户自己创建和填写
-                callbackGasLimit: 500000 // 500,000 gas
+                callbackGasLimit: 500000, // 500,000 gas
+                link: address(link)
             });
     }
 }

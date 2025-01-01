@@ -2,9 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {Script} from "forge-std/Script.sol";
-import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {VRFCoordinatorV2_5Mock} from "../lib/chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+import {LinkToken} from "../test/mocks/LinkToken.sol";
+import {CodeConstants} from "./HelperConfig.s.sol";
 
 contract CreateSubscription is Script {
     function createSubscriptionUsingConfig() public returns (uint256, address) {
@@ -22,5 +23,19 @@ contract CreateSubscription is Script {
 
     function run() external returns (uint256, address) {
         return createSubscriptionUsingConfig();
+    }
+}
+
+contract FundSubscription is Script, CodeConstants {
+    uint256 constant FUND_AMOUNT = 3 ether;
+
+    function fundSubscription(uint256 subId, address vrfCoordinator, address link) public {
+        vm.startBroadcast();
+        if (block.chainid == ANVIL_CHAIN_ID) {
+            VRFCoordinatorV2_5Mock(vrfCoordinator).fundSubscription(subId, FUND_AMOUNT);
+        } else {
+            LinkToken(link).transferAndCall(address(vrfCoordinator), FUND_AMOUNT, abi.encode(subId));
+        }
+        vm.stopBroadcast();
     }
 }
