@@ -88,4 +88,20 @@ contract RaffleTest is Test, IRaffle {
         // Foundry会自动比较实际发出的事件与我们在上面定义的期望事件
         raffle.enterRaffle{value: entranceFee}();
     }
+
+    function testPlayerCanNotEnterWhileRaffleIsCalculating() public {
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        // 模拟时间流逝，将区块时间戳增加interval+1秒
+        // 这样可以确保checkUpkeep()中的timeHasPassed条件为true
+        vm.warp(block.timestamp + interval + 1);
+        // 模拟区块高度增加，通常与warp一起使用以保持一致性
+        // 因为在实际链上，新区块会同时更新时间戳和区块高度
+        vm.roll(block.number + 1);
+        raffle.performUpkeep("");
+
+        vm.expectRevert(Raffle.Raffle_RaffleNotOpen.selector);
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+    }
 }
