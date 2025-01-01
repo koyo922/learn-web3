@@ -7,6 +7,7 @@ import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {IRaffle} from "../../src/interfaces/IRaffle.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 
 contract RaffleTest is Test, IRaffle {
     Raffle raffle;
@@ -175,5 +176,15 @@ contract RaffleTest is Test, IRaffle {
         bytes32 requestId = entries[1].topics[1];
         assert(requestId > 0);
         assert(raffle.getRaffleState() == Raffle.RaffleState.CALCULATING);
+    }
+
+    /*/////////////////////////////////////////////////////////////////////////
+                            FULFILL RANDOM WORDS
+    //////////////////////////////////////////////////////////////////////// */
+
+    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(uint256 randomRequestId) public raffleEntered {
+        vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector); // why revert: 因为早于performUpkeep
+        // Mock网络里面anyone都可以调用fulfillRandomWords，实际网络里面只有VRF Node可以调用
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(randomRequestId, address(raffle));
     }
 }
