@@ -17,6 +17,10 @@ contract DeployRaffle is Script {
         HelperConfig helperConfig = new HelperConfig();
         HelperConfig.NetworkConfig memory networkConfig = helperConfig.getConfig();
 
+        console.log("Deploying with config:");
+        console.log("subscriptionId:", networkConfig.subscriptionId);
+        console.log("vrfCoordinator:", networkConfig.vrfCoordinator);
+
         if (networkConfig.subscriptionId == 0) {
             CreateSubscription createSubscription = new CreateSubscription();
             (networkConfig.subscriptionId, networkConfig.vrfCoordinator) = createSubscription.createSubscription(networkConfig.vrfCoordinator);
@@ -34,8 +38,14 @@ contract DeployRaffle is Script {
             networkConfig.callbackGasLimit
         );
         vm.stopBroadcast();
+
+        console.log("Raffle deployed at:", address(raffle));
+        console.log("Adding consumer to VRF subscription...");
+        
         AddConsumer addConsumer = new AddConsumer();
         addConsumer.addConsumer(networkConfig.subscriptionId, networkConfig.vrfCoordinator, address(raffle));
+        
+        console.log("Consumer added successfully");
         return (raffle, helperConfig);
     }
 }

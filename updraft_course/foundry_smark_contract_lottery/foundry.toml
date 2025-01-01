@@ -11,4 +11,14 @@ remappings = [
     "@solmate=lib/solmate/src/",
 ]
 
+[profile.sepolia]
+eth_rpc_url = "${RPC_URL_ETH}"
+verify = true
+
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
+
+[rpc_endpoints]
+sepolia = "${RPC_URL_ETH}"
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
