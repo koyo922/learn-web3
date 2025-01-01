@@ -36,6 +36,8 @@ contract Raffle is IRaffle, VRFConsumerBaseV2Plus {
     address payable private s_recentWinner;
     RaffleState private s_raffleState;
 
+    event RequestedRaffleWinner(uint256 indexed requestId);
+
     constructor(
         uint256 entranceFee,
         uint256 interval,
@@ -74,7 +76,7 @@ contract Raffle is IRaffle, VRFConsumerBaseV2Plus {
         (bool upkeepNeeded, ) = checkUpkeep("");
         if (!upkeepNeeded) revert Raffle_UpkeepNotNeeded(address(this).balance, s_players.length, uint256(s_raffleState));
         s_raffleState = RaffleState.CALCULATING;
-        s_vrfCoordinator.requestRandomWords(
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: i_keyHash, // relate to gas price
                 subId: i_subscriptionId,
@@ -87,6 +89,7 @@ contract Raffle is IRaffle, VRFConsumerBaseV2Plus {
                 )
             })
         );
+        emit RequestedRaffleWinner(requestId); // 其实这里没必要，因为requestRandomWords会emit类似的事件
     }
 
     function fulfillRandomWords(uint256 /* requestId */, uint256[] calldata randomWords) internal override {

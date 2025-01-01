@@ -6,6 +6,7 @@ import {Raffle} from "../../src/Raffle.sol";
 import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {IRaffle} from "../../src/interfaces/IRaffle.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract RaffleTest is Test, IRaffle {
     Raffle raffle;
@@ -147,20 +148,32 @@ contract RaffleTest is Test, IRaffle {
     /*/////////////////////////////////////////////////////////////////////////
                                   PERFORM UPKEEP
     //////////////////////////////////////////////////////////////////////// */
-    function testPerformUpkeepCanOnlyRunIfCheckUpkeepIsTrue() public {
+    modifier raffleEntered() {
         vm.prank(PLAYER);
         raffle.enterRaffle{value: entranceFee}();
         vm.warp(block.timestamp + interval + 1);
         vm.roll(block.number + 1);
+        _;
+    }
+
+    function testPerformUpkeepCanOnlyRunIfCheckUpkeepIsTrue() public raffleEntered {
         raffle.performUpkeep("");
     }
 
     function testPerformUpkeepRevertsIfCheckUpkeepIsFalse() public {
-        // 初始状态：没有玩家参与，余额为0，所以checkUpkeep会返回false
         uint256 balance = 0;
         uint256 playersLength = 0;
         Raffle.RaffleState raffleState = raffle.getRaffleState();
         vm.expectRevert(abi.encodeWithSelector(Raffle.Raffle_UpkeepNotNeeded.selector, balance, playersLength, raffleState));
         raffle.performUpkeep("");
+    }
+
+    function testPerformUpkeepEmitsRequestedRaffleWinnerEvent() public raffleEntered {
+        vm.recordLogs();
+        raffle.performUpkeep("");
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 requestId = entries[1].topics[1];
+        assert(requestId > 0);
+        assert(raffle.getRaffleState() == Raffle.RaffleState.CALCULATING);
     }
 }
