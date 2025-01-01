@@ -4,8 +4,9 @@ pragma solidity ^0.8.19;
 import {Script} from "forge-std/Script.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {VRFCoordinatorV2_5Mock} from "../lib/chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
-import {LinkToken} from "../test/mocks/LinkToken.sol";
+// import {LinkToken} from "../test/mocks/LinkToken.sol";
 import {CodeConstants} from "./HelperConfig.s.sol";
+import {IVRFSubscriptionV2Plus} from "../lib/chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFSubscriptionV2Plus.sol";
 
 contract CreateSubscription is Script {
     function createSubscriptionUsingConfig() public returns (uint256, address) {
@@ -34,10 +35,9 @@ contract FundSubscription is Script, CodeConstants {
         if (block.chainid == ANVIL_CHAIN_ID) {
             VRFCoordinatorV2_5Mock(vrfCoordinator).fundSubscription(subId, FUND_AMOUNT);
         } else {
-            (bool success,) = vrfCoordinator.call{value: FUND_AMOUNT}(
-                abi.encodeWithSelector(0x95b55cfc, subId)
-            );
-            require(success, "Failed to fund subscription with native ETH");
+            // 最近 faucets LINK 不稳定，只好先用 native token(ETH) 来 fund
+            IVRFSubscriptionV2Plus coordinator = IVRFSubscriptionV2Plus(vrfCoordinator);
+            coordinator.fundSubscriptionWithNative{value: FUND_AMOUNT}(subId);
         }
         vm.stopBroadcast();
     }
