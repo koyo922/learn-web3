@@ -1,24 +1,61 @@
+# 合约验证配置的唯一来源
+# 所有与验证相关的设置都应该在这里配置，而不是在 Makefile 中
+# 这样可以避免配置冲突和重复
+
+# 问题：合约在 Sepolia 网络上部署后无法自动验证
+# 原因：
+# 1. 编译器版本不一致：不同文件使用了不同的 solidity 版本 (^0.8.18 vs ^0.8.19)
+# 2. 缺少优化器配置：部署时的字节码与验证时的字节码不匹配
+# 3. Etherscan API 配置不完整：缺少必要的网络信息
+
+# 基础配置
 [profile.default]
 src = "src"
 out = "out"
 libs = ["lib"]
-fs_permissions = [
-    { access = "read", path = "./broadcast" },
-    { access = "read", path = "./reports" },
-]
 remappings = [
     "@chainlink/contracts/=lib/chainlink/contracts/",
     "@solmate=lib/solmate/src/",
 ]
 
-[profile.sepolia]
-eth_rpc_url = "${RPC_URL_ETH}"
-verify = true
+# 文件系统权限
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read", path = "./reports" },
+]
 
-[etherscan]
-sepolia = { key = "${ETHERSCAN_API_KEY}" }
+# 编译器设置
+solc_version = "0.8.19" # 统一所有合约的编译器版本
+optimizer = true        # 启用优化器以减少 gas 消耗
+optimizer_runs = 200    # 优化器运行次数，影响部署成本和验证
 
+# 网络配置
+[profile.ethereum_mainnet] # 更明确的网络名称
+eth_rpc_url = "${ETH_MAINNET_RPC_URL}" # 更规范的环境变量名
+verify = true                          # 启用合约验证
+
+[profile.ethereum_sepolia] # 更明确的网络名称
+eth_rpc_url = "${ETH_SEPOLIA_RPC_URL}" # 更规范的环境变量名
+verify = true                          # 启用合约验证
+
+# RPC 端点配置
 [rpc_endpoints]
-sepolia = "${RPC_URL_ETH}"
+ethereum_mainnet = "${ETH_MAINNET_RPC_URL}" # 与 profile 名称保持一致
+ethereum_sepolia = "${ETH_SEPOLIA_RPC_URL}" # 与 profile 名称保持一致
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+# Etherscan 验证配置
+[etherscan]
+# chain=1   | Ethereum Mainnet  | https://etherscan.io
+ethereum_mainnet = { key = "${ETHERSCAN_API_KEY}", chain = 1, url = "https://api.etherscan.io/api" }
+
+# chain=11155111 | Ethereum Sepolia | https://sepolia.etherscan.io
+ethereum_sepolia = { key = "${ETHERSCAN_API_KEY}", chain = 11155111, url = "https://api-sepolia.etherscan.io/api" }
+
+# 补充说明：
+# 1. 在使用 forge script 部署时，这些配置会自动应用
+# 2. 验证过程会使用相同的编译设置重新编译合约
+# 3. 只有当编译设置完全匹配时，验证才会成功
+# 4. 清理缓存 (forge clean) 可以确保使用最新的配置重新编译
+
+# 更多配置选项参考：
+# https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

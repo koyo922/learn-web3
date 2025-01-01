@@ -3,7 +3,7 @@ include ../../.env
 
 .PHONY: all test clean deploy fund help install snapshot format anvil 
 
-DEFAULT_ANVIL_KEY := $(PRIVATE_KEY_ANVIL)
+DEFAULT_ANVIL_KEY := $(ANVIL_PRIVATE_KEY)
 
 help:
 	@echo "使用说明:"
@@ -21,10 +21,12 @@ help:
 	@echo "  make snapshot          - 创建测试快照"
 
 # 部署相关命令
-NETWORK_ARGS := --rpc-url $(CHAIN_URL_ANVIL) --private-key $(DEFAULT_ANVIL_KEY) --broadcast
+# 注意：验证相关的配置已移至 foundry.toml
+# 这里只保留必要的网络参数
+NETWORK_ARGS := --rpc-url $(ANVIL_RPC_URL) --private-key $(DEFAULT_ANVIL_KEY) --broadcast
 
 ifeq ($(findstring --network sepolia,$(ARGS)),--network sepolia)
-	NETWORK_ARGS := --rpc-url $(RPC_URL_ETH) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+	NETWORK_ARGS := --rpc-url $(ETH_SEPOLIA_RPC_URL) --private-key $(ETH_PRIVATE_KEY) --broadcast -vvvv
 endif
 
 deploy-raffle:
@@ -50,10 +52,10 @@ test-debug:
 	@forge test -vvvv
 
 test-sepolia:
-	@forge test --fork-url $(RPC_URL_ETH) -vvvv
+	@forge test --fork-url $(ETH_SEPOLIA_RPC_URL) -vvvv
 
 test-calculating-sepolia:
-	@forge test --match-test testPlayerCanNotEnterWhileRaffleIsCalculating --fork-url $(RPC_URL_ETH) -vvvv
+	@forge test --match-test testPlayerCanNotEnterWhileRaffleIsCalculating --fork-url $(ETH_SEPOLIA_RPC_URL) -vvvv
 
 coverage:
 	@forge coverage --report debug > coverage.txt
