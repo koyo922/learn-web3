@@ -17,7 +17,9 @@ contract CreateSubscription is Script {
     }
 
     function createSubscription(address vrfCoordinator) public returns (uint256, address) {
+        vm.startBroadcast(); // 创建时也应该用广播身份，否则后面充值时的身份不同(非owner不能充值)
         uint256 subId = VRFCoordinatorV2_5Mock(vrfCoordinator).createSubscription();
+        vm.stopBroadcast();
         return (subId, vrfCoordinator);
     }
 
@@ -53,7 +55,9 @@ contract FundSubscription is Script, CodeConstants {
 
 contract AddConsumer is Script {
     function addConsumer(uint256 subId, address vrfCoordinator, address consumer) public {
+        vm.startBroadcast();
         VRFCoordinatorV2_5Mock(vrfCoordinator).addConsumer(subId, consumer);
+        vm.stopBroadcast();
     }
 
     function run() external {
@@ -61,8 +65,6 @@ contract AddConsumer is Script {
         HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
         // 使用 DevOpsTools 获取最新部署的 Raffle 合约地址
         address mostRecentlyDeployed = DevOpsTools.get_most_recent_deployment("Raffle", block.chainid);
-        vm.startBroadcast();
         addConsumer(config.subscriptionId, config.vrfCoordinator, mostRecentlyDeployed);
-        vm.stopBroadcast();
     }
 }
