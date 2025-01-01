@@ -105,9 +105,9 @@ contract RaffleTest is Test, IRaffle {
         raffle.enterRaffle{value: entranceFee}();
     }
 
-    /**
-     ****************************** CHECK UPKEEP ******************************
-     */
+    /*/////////////////////////////////////////////////////////////////////////
+                                   CHECK UPKEEP
+    //////////////////////////////////////////////////////////////////////// */
 
     function testCheckUpkeepReturnsFalseIfNoBalance() public {
         vm.prank(PLAYER);
@@ -142,5 +142,25 @@ contract RaffleTest is Test, IRaffle {
         vm.roll(block.number + 1);
         (bool upkeepNeeded, ) = raffle.checkUpkeep("");
         assert(upkeepNeeded);
+    }
+
+    /*/////////////////////////////////////////////////////////////////////////
+                                  PERFORM UPKEEP
+    //////////////////////////////////////////////////////////////////////// */
+    function testPerformUpkeepCanOnlyRunIfCheckUpkeepIsTrue() public {
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+        raffle.performUpkeep("");
+    }
+
+    function testPerformUpkeepRevertsIfCheckUpkeepIsFalse() public {
+        // 初始状态：没有玩家参与，余额为0，所以checkUpkeep会返回false
+        uint256 balance = 0;
+        uint256 playersLength = 0;
+        Raffle.RaffleState raffleState = raffle.getRaffleState();
+        vm.expectRevert(abi.encodeWithSelector(Raffle.Raffle_UpkeepNotNeeded.selector, balance, playersLength, raffleState));
+        raffle.performUpkeep("");
     }
 }
