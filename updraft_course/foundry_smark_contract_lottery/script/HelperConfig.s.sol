@@ -41,12 +41,13 @@ contract HelperConfig is Script, CodeConstants {
     }
 
     function getSepoliaEthConfig() public pure returns (NetworkConfig memory) {
+        // https://docs.chain.link/vrf/v2-5/supported-networks#sepolia-testnet
         return
             NetworkConfig({
                 entranceFee: 0.01 ether,
                 interval: 30, // 30 seconds
-                vrfCoordinator: 0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625, // Chainlink VRF Coordinator v2.5
-                gasLane: 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c, // 150 gwei Key Hash
+                vrfCoordinator: 0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B, // Chainlink VRF Coordinator v2.5
+                gasLane: 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae, // 150 gwei Key Hash
                 subscriptionId: 9929970782370025809564082213265651764134854626883528169543351404708910376986,
                 callbackGasLimit: 500000, // 500,000 gas
                 link: 0x779877A7B0D9E8603169DdbD7836e478b4624789 // Chainlink LINK token

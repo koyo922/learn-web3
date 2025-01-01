@@ -27,15 +27,24 @@ contract CreateSubscription is Script {
 }
 
 contract FundSubscription is Script, CodeConstants {
-    uint256 constant FUND_AMOUNT = 3 ether;
+    uint256 constant FUND_AMOUNT = 0.0001 ether;
 
-    function fundSubscription(uint256 subId, address vrfCoordinator, address link) public {
+    function fundSubscription(uint256 subId, address vrfCoordinator, address /* link */) public {
         vm.startBroadcast();
         if (block.chainid == ANVIL_CHAIN_ID) {
             VRFCoordinatorV2_5Mock(vrfCoordinator).fundSubscription(subId, FUND_AMOUNT);
         } else {
-            LinkToken(link).transferAndCall(address(vrfCoordinator), FUND_AMOUNT, abi.encode(subId));
+            (bool success,) = vrfCoordinator.call{value: FUND_AMOUNT}(
+                abi.encodeWithSelector(0x95b55cfc, subId)
+            );
+            require(success, "Failed to fund subscription with native ETH");
         }
         vm.stopBroadcast();
+    }
+
+    function run() external {
+        HelperConfig helperConfig = new HelperConfig();
+        HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
+        fundSubscription(config.subscriptionId, config.vrfCoordinator, config.link);
     }
 }
