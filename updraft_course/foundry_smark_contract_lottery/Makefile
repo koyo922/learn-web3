@@ -47,6 +47,7 @@ ifeq ($(findstring --network sepolia,$(ARGS)),--network sepolia)
 	NETWORK_ARGS := --rpc-url $(ETH_SEPOLIA_RPC_URL) --private-key $(ETH_PRIVATE_KEY) --broadcast -vvvv
 endif
 
+# 下面这些没有 --fork-url 参数，如果指定了sepolia，则会影响真实的sepolia的网络
 deploy-raffle:
 	@forge script script/DeployRaffle.s.sol:DeployRaffle $(NETWORK_ARGS)
 
@@ -69,6 +70,8 @@ test-watch:
 test-debug:
 	@forge test -vvvv
 
+
+# 下面这些有 --fork-url 参数，即使指定了sepolia，也不会影响真实的sepolia的网络
 test-sepolia:
 	@forge test --fork-url $(ETH_SEPOLIA_RPC_URL) -vvvv
 
