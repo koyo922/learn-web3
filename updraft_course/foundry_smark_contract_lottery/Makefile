@@ -1,38 +1,32 @@
--include ../../.env
+# ref: https://github.com/Cyfrin/foundry-fund-me-cu/blob/main/Makefile
+include ../../.env
 
-.PHONY: all test deploy fund
+.PHONY: all test clean deploy fund help install snapshot format anvil 
+
+DEFAULT_ANVIL_KEY := $(PRIVATE_KEY_ANVIL)
 
 help:
-	@echo "Usage:"
-	@echo "  make deploy-anvil                    部署到Anvil本地网络"
-	@echo "  make deploy-sepolia                  部署到Sepolia测试网"
-	@echo "  make create-subscription-anvil        在Anvil上创建VRF订阅"
-	@echo "  make create-subscription-sepolia      在Sepolia上创建VRF订阅"
-	@echo "  make fund-subscription-anvil          在Anvil上为VRF订阅充值"
-	@echo "  make fund-subscription-sepolia        在Sepolia上为VRF订阅充值"
+	@echo "使用说明:"
+	@echo "  make deploy-raffle      - 部署 Raffle 合约"
+	@echo "  make create-sub         - 创建 VRF 订阅"
+	@echo "  make fund-sub           - 资助 VRF 订阅"
+	@echo "  make add-consumer       - 添加消费者到 VRF 订阅"
 
-# 部署命令
-deploy-anvil:
-	@forge script script/DeployRaffle.s.sol:DeployRaffle --rpc-url $(CHAIN_URL_ANVIL) \
-		--private-key $(PRIVATE_KEY_ANVIL) --broadcast -vvv
+# 部署相关命令
+NETWORK_ARGS := --rpc-url $(CHAIN_URL_ANVIL) --private-key $(DEFAULT_ANVIL_KEY) --broadcast
 
-deploy-sepolia:
-	@forge script script/DeployRaffle.s.sol:DeployRaffle --rpc-url $(RPC_URL_ETH) \
-		--private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvv
+ifeq ($(findstring --network sepolia,$(ARGS)),--network sepolia)
+	NETWORK_ARGS := --rpc-url $(RPC_URL_ETH) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+endif
 
-# VRF订阅相关命令
-create-subscription-anvil:
-	@forge script script/Interactions.s.sol:CreateSubscription --rpc-url $(CHAIN_URL_ANVIL) \
-		--private-key $(PRIVATE_KEY_ANVIL) --broadcast -vvv
+deploy-raffle:
+	@forge script script/DeployRaffle.s.sol:DeployRaffle $(NETWORK_ARGS)
 
-create-subscription-sepolia:
-	@forge script script/Interactions.s.sol:CreateSubscription --rpc-url $(RPC_URL_ETH) \
-		--private-key $(PRIVATE_KEY) --broadcast -vvv
+create-sub:
+	@forge script script/Interactions.s.sol:CreateSubscription $(NETWORK_ARGS)
 
-fund-subscription-anvil:
-	@forge script script/Interactions.s.sol:FundSubscription --rpc-url $(CHAIN_URL_ANVIL) \
-		--private-key $(PRIVATE_KEY_ANVIL) --broadcast -vvv
+fund-sub:
+	@forge script script/Interactions.s.sol:FundSubscription $(NETWORK_ARGS)
 
-fund-subscription-sepolia:
-	@forge script script/Interactions.s.sol:FundSubscription --rpc-url $(RPC_URL_ETH) \
-		--private-key $(PRIVATE_KEY) --broadcast -vvv 
+add-consumer:
+	@forge script script/Interactions.s.sol:AddConsumer $(NETWORK_ARGS) 

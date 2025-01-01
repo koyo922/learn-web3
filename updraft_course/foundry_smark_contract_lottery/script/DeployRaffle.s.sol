@@ -5,6 +5,9 @@ import "forge-std/Script.sol";
 import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {CreateSubscription} from "./Interactions.s.sol";
+import {FundSubscription} from "./Interactions.s.sol";
+import {AddConsumer} from "./Interactions.s.sol";
+
 contract DeployRaffle is Script {
     function run() external returns (Raffle, HelperConfig) {
         return deployContract();
@@ -17,8 +20,11 @@ contract DeployRaffle is Script {
         if (networkConfig.subscriptionId == 0) {
             CreateSubscription createSubscription = new CreateSubscription();
             (networkConfig.subscriptionId, networkConfig.vrfCoordinator) = createSubscription.createSubscription(networkConfig.vrfCoordinator);
+            FundSubscription fundSubscription = new FundSubscription();
+            fundSubscription.fundSubscription(networkConfig.subscriptionId, networkConfig.vrfCoordinator, networkConfig.link);
         }
 
+        vm.startBroadcast();
         Raffle raffle = new Raffle(
             networkConfig.entranceFee,
             networkConfig.interval,
@@ -28,6 +34,8 @@ contract DeployRaffle is Script {
             networkConfig.callbackGasLimit
         );
         vm.stopBroadcast();
+        AddConsumer addConsumer = new AddConsumer();
+        addConsumer.addConsumer(networkConfig.subscriptionId, networkConfig.vrfCoordinator, address(raffle));
         return (raffle, helperConfig);
     }
 }
