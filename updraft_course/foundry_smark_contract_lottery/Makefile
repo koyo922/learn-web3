@@ -79,7 +79,10 @@ test-calculating-sepolia:
 	@forge test --match-test testPlayerCanNotEnterWhileRaffleIsCalculating --fork-url $(ETH_SEPOLIA_RPC_URL) -vvvv
 
 coverage:
-	@forge coverage --report debug > coverage.txt
+	@forge coverage
+
+coverage-debug:
+	@forge coverage --report debug | tee coverage.txt
 
 snapshot:
 	@forge snapshot 
