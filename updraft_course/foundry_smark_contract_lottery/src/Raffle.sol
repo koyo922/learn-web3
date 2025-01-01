@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {IRaffle} from "./interfaces/IRaffle.sol";
 
 /**
  * @title A sample Raffle Contract
@@ -11,7 +12,7 @@ import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/V
  * @notice This contract is for creating a sample raffle
  * @dev It implements Chainlink VRFv2.5 and Chainlink Automation
  */
-contract Raffle is VRFConsumerBaseV2Plus {
+contract Raffle is IRaffle, VRFConsumerBaseV2Plus {
     error Raffle_NotEnoughEthSent();
     error Raffle_TransferFailed();
     error Raffle_RaffleNotOpen();
@@ -34,8 +35,6 @@ contract Raffle is VRFConsumerBaseV2Plus {
     uint256 private s_lastTimeStamp;
     address payable private s_recentWinner;
     RaffleState private s_raffleState;
-    event EnteredRaffle(address indexed player); // 带索引的参数(topics)更易于检索
-    event WinnerPicked(address indexed winner);
 
     constructor(
         uint256 entranceFee,
@@ -56,8 +55,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
 
     // external 比 public 更便宜
     function enterRaffle() external payable {
-        // require(msg.value >= i_entranceFee, "Not enough ETH sent");
-        if (msg.value < i_entranceFee) revert Raffle_NotEnoughEthSent(); // 自定义Error类型，比require更便宜
+        if (msg.value < i_entranceFee) revert Raffle_NotEnoughEthSent();
         if (s_raffleState != RaffleState.OPEN) revert Raffle_RaffleNotOpen();
         s_players.push(payable(msg.sender));
         emit EnteredRaffle(msg.sender);
@@ -115,5 +113,9 @@ contract Raffle is VRFConsumerBaseV2Plus {
 
     function getRaffleState() external view returns (RaffleState) {
         return s_raffleState;
+    }
+
+    function getPlayer(uint256 index) external view returns (address) {
+        return s_players[index];
     }
 }
