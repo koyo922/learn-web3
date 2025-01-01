@@ -1,6 +1,24 @@
 # ref: https://github.com/Cyfrin/foundry-fund-me-cu/blob/main/Makefile
 include ../../.env
 
+# 环境变量处理说明：
+# 1. include ../../.env 只会将变量导入到 Make 的作用域
+# 2. 这些变量可以在 Makefile 中使用，如 $(ETH_PRIVATE_KEY)
+# 3. 但是，它们默认不会传递给子进程（如 forge script）
+#
+# 关于 PRIVATE_KEY：
+# 1. forge script 的 --private-key 参数会自动设置 PRIVATE_KEY 环境变量
+# 2. 所以在 Solidity 中可以直接用 vm.envUint("PRIVATE_KEY")
+# 3. 但是 forge test 不支持 --private-key 参数
+# 4. 所以测试时需要显式导出 PRIVATE_KEY
+export PRIVATE_KEY=$(ETH_PRIVATE_KEY)
+#
+# 其他环境变量：
+# 1. 验证和 RPC 相关的变量仍需要导出(如果用到的话，这里其实没用到)
+# 2. 因为它们没有对应的命令行参数自动处理机制
+# export ETHERSCAN_API_KEY
+# export ETH_SEPOLIA_RPC_URL
+
 .PHONY: all test clean deploy fund help install snapshot format anvil 
 
 DEFAULT_ANVIL_KEY := $(ANVIL_PRIVATE_KEY)

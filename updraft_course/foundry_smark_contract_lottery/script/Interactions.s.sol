@@ -63,21 +63,21 @@ contract AddConsumer is Script, CodeConstants {
      *    - 充值 LINK 代币
      *    - 取出未使用的 LINK 代币
      *    - 转移所有权
-     * 
+     *
      * 2. 权限验证失败的原因:
      *    - subscription owner: 0x28C383FC8666f050A6FDEA1d5d586E814f9DFE8f (从VRF UI创建时使用的钱包地址)
      *    - 当前调用者: 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f (测试用的默认账户)
-     * 
+     *
      * 3. 错误信息 MustBeSubOwner 的含义:
      *    - "必须是subscription的所有者才能执行这个操作"
      *    - 括号中的地址指示谁是实际的所有者
      *    - 这是一个安全检查，确保只有授权账户才能管理subscription
-     * 
+     *
      * 4. 为什么本地测试能通过:
      *    - 本地Anvil链使用模拟的VRFCoordinator
      *    - 模拟合约没有严格的权限检查
      *    - 或者测试账户自动成为了subscription的所有者
-     * 
+     *
      * 5. 解决方案:
      *    - 需要使用正确的私钥(对应地址0x28C383...)来发送交易
      *    - 因为只有这个地址有权限添加消费者
@@ -89,7 +89,8 @@ contract AddConsumer is Script, CodeConstants {
             VRFCoordinatorV2_5Mock(vrfCoordinator).addConsumer(subId, consumer);
         } else {
             // 在 Sepolia 上，使用实际的 subscription owner 的私钥
-            // PRIVATE_KEY 应该在环境变量中设置，对应地址应该是 0x28C383FC8666f050A6FDEA1d5d586E814f9DFE8f
+            // PRIVATE_KEY 会自动从 forge script 的 --private-key 参数获取
+            // 不需要显式设置环境变量
             uint256 deployerKey = vm.envUint("PRIVATE_KEY");
             vm.startBroadcast(deployerKey);
             IVRFSubscriptionV2Plus(vrfCoordinator).addConsumer(subId, consumer);
