@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {Raffle} from "../../src/Raffle.sol";
 import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
@@ -192,17 +192,18 @@ contract RaffleTest is Test, IRaffle, CodeConstants {
                             FULFILL RANDOM WORDS
     //////////////////////////////////////////////////////////////////////// */
 
-    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(uint256 randomRequestId) public raffleEntered {
-        if (block.chainid == ANVIL_CHAIN_ID) {
-            vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector); // for anvil
-            // Mock网络里面anyone都可以调用fulfillRandomWords，实际网络里面只有VRF Node可以调用
-            VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(randomRequestId, address(raffle));
-        } else {
-            // 在实际网络上，我们不能直接调用 fulfillRandomWords
-            // 因为它是一个内部回调方法，只能由 VRFCoordinator 调用
-            // 所以这个测试在 Sepolia 上没有意义，我们跳过它
+    modifier skipOnSepoliaFork() {
+        if (block.chainid != ANVIL_CHAIN_ID) {
             return;
         }
+        _;
+    }
+
+    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(uint256 randomRequestId) public raffleEntered skipOnSepoliaFork {
+        // 在本地网络上，直接调用 fulfillRandomWords
+        // Mock网络里面anyone都可以调用fulfillRandomWords，实际网络里面只有VRF Node可以调用
+        vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector);
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(randomRequestId, address(raffle));
     }
 
     // test whole process or enter,pick winner,fulfill random words, send prize
