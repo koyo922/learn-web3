@@ -9,6 +9,7 @@ import {CodeConstants} from "../../script/HelperConfig.s.sol";
 import {IRaffle} from "../../src/interfaces/IRaffle.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 
 contract RaffleTest is Test, IRaffle, CodeConstants {
     Raffle raffle;
@@ -220,7 +221,40 @@ contract RaffleTest is Test, IRaffle, CodeConstants {
         raffle.performUpkeep("");
         Vm.Log[] memory entries = vm.getRecordedLogs();
         bytes32 requestId = entries[1].topics[1];
-        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(uint256(requestId), address(raffle));
+
+        // 打印玩家列表
+        address payable[] memory players = raffle.getPlayers();
+        console.log("Players list:");
+        for (uint256 i = 0; i < players.length; i++) {
+            console.log("Player", i, ":", players[i]);
+        }
+
+        // 检查当前环境
+        uint256 chainId;
+        assembly {
+            chainId := chainid()
+        }
+        console.log("Current chain ID:", chainId);
+        console.log("ANVIL_CHAIN_ID:", ANVIL_CHAIN_ID);
+
+        if (chainId == ANVIL_CHAIN_ID) {
+            console.log("Running on Anvil");
+            // 在本地网络上，直接调用 fulfillRandomWords
+            VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(uint256(requestId), address(raffle));
+        } else {
+            console.log("Running on Sepolia fork");
+            // 在 Sepolia fork 上，我们需要模拟 VRF Coordinator 的行为
+            console.log("Mocking VRF Coordinator callback...");
+
+            // 准备随机数数组
+            uint256[] memory randomWords = new uint256[](1);
+            randomWords[0] = 5; // 5 % 4 = 1
+            console.log("Random number:", randomWords[0]);
+
+            // 模拟 VRF Coordinator 的回调
+            vm.prank(vrfCoordinator); // 确保调用者是 VRF Coordinator
+            VRFConsumerBaseV2Plus(address(raffle)).rawFulfillRandomWords(uint256(requestId), randomWords);
+        }
 
         // Assert
         address recentWinner = raffle.getRecentWinner();
@@ -229,7 +263,13 @@ contract RaffleTest is Test, IRaffle, CodeConstants {
         uint256 endingTimeStamp = raffle.getLastTimeStamp();
         uint256 prize = entranceFee * (1 + additionalEntries);
 
-        assert(recentWinner == expectedWinner);
+        console.log("Winner starting balance:", winnerStartingBalance);
+        console.log("Winner ending balance:", winnerBalance);
+        console.log("Prize:", prize);
+        console.log("Recent winner:", recentWinner);
+        console.log("Expected winner:", expectedWinner);
+
+        assert(recentWinner == expectedWinner); // 在任何环境下，随机数5都应该选中 address(1)
         assert(raffleState == Raffle.RaffleState.OPEN);
         assert(winnerBalance == winnerStartingBalance + prize);
         assert(endingTimeStamp > startingTimeStamp);
