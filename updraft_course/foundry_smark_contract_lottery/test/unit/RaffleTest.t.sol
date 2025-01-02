@@ -5,11 +5,12 @@ import {Test, console} from "forge-std/Test.sol";
 import {Raffle} from "../../src/Raffle.sol";
 import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
+import {CodeConstants} from "../../script/HelperConfig.s.sol";
 import {IRaffle} from "../../src/interfaces/IRaffle.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 
-contract RaffleTest is Test, IRaffle {
+contract RaffleTest is Test, IRaffle, CodeConstants {
     Raffle raffle;
     HelperConfig helperConfig;
 
@@ -189,9 +190,16 @@ contract RaffleTest is Test, IRaffle {
     //////////////////////////////////////////////////////////////////////// */
 
     function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(uint256 randomRequestId) public raffleEntered {
-        vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector); // why revert: 因为早于performUpkeep
-        // Mock网络里面anyone都可以调用fulfillRandomWords，实际网络里面只有VRF Node可以调用
-        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(randomRequestId, address(raffle));
+        if (block.chainid == ANVIL_CHAIN_ID) {
+            vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector); // for anvil
+            // Mock网络里面anyone都可以调用fulfillRandomWords，实际网络里面只有VRF Node可以调用
+            VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(randomRequestId, address(raffle));
+        } else {
+            // 在实际网络上，我们不能直接调用 fulfillRandomWords
+            // 因为它是一个内部回调方法，只能由 VRFCoordinator 调用
+            // 所以这个测试在 Sepolia 上没有意义，我们跳过它
+            return;
+        }
     }
 
     // test whole process or enter,pick winner,fulfill random words, send prize
