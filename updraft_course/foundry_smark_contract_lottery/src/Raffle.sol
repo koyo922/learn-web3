@@ -92,9 +92,20 @@ contract Raffle is IRaffle, VRFConsumerBaseV2Plus {
         emit RequestedRaffleWinner(requestId); // 其实这里没必要，因为requestRandomWords会emit类似的事件
     }
 
+    /**
+     * @dev 这个函数由 VRF Coordinator 调用来提供随机数
+     * @dev 在测试环境中，VRFCoordinatorV2_5Mock使用一个确定性的过程来生成"随机"数：
+     * @dev 1. requestId从1开始递增。第一次请求时requestId=1
+     * @dev 2. 当请求numWords=1个随机数时，使用i=0作为第一个（也是唯一一个）随机数的索引
+     * @dev 3. 将requestId和i编码后取哈希，得到确定性的"随机"数
+     * @dev 4. 这个过程在测试中是完全可重现的
+     * @dev 具体过程可以参考test/unit/RandomNumberToy.t.sol中的演示
+     * @dev 注意：这只是测试环境的行为。在真实网络中，Chainlink VRF 提供真正的随机数
+     */
     function fulfillRandomWords(uint256 /* requestId */, uint256[] calldata randomWords) internal override {
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable winner = s_players[indexOfWinner];
+
         s_recentWinner = winner;
         s_raffleState = RaffleState.OPEN;
         // 在Solidity中，数组没有类似Python的.clear()方法
