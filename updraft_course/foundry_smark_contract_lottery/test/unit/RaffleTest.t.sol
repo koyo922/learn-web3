@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {Raffle} from "../../src/Raffle.sol";
 import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
@@ -162,10 +162,16 @@ contract RaffleTest is Test, IRaffle {
     }
 
     function testPerformUpkeepRevertsIfCheckUpkeepIsFalse() public {
-        uint256 balance = 0;
-        uint256 playersLength = 0;
+        uint256 currentBalance = address(raffle).balance;
+        uint256 playersLength = raffle.getPlayers().length;
         Raffle.RaffleState raffleState = raffle.getRaffleState();
-        vm.expectRevert(abi.encodeWithSelector(Raffle.Raffle_UpkeepNotNeeded.selector, balance, playersLength, raffleState));
+
+        // upkeep 不被需要的原因:
+        // 1. hasPlayers = false (当前没有玩家参与)
+        // 2. timeHasPassed = false (时间间隔未到)
+        // 3. isOpen = true (已满足)
+        // 4. hasBalance = true (已满足，当前余额: 0.101 ETH)
+        vm.expectRevert(abi.encodeWithSelector(Raffle.Raffle_UpkeepNotNeeded.selector, currentBalance, playersLength, raffleState));
         raffle.performUpkeep("");
     }
 

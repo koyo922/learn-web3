@@ -130,6 +130,10 @@ contract Raffle is IRaffle, VRFConsumerBaseV2Plus {
         return s_players[index];
     }
 
+    function getPlayers() public view returns (address payable[] memory) {
+        return s_players;
+    }
+
     function getLastTimeStamp() external view returns (uint256) {
         return s_lastTimeStamp;
     }
