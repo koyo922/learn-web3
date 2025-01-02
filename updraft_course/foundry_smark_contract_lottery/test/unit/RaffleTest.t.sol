@@ -35,6 +35,8 @@ contract RaffleTest is Test, IRaffle, CodeConstants {
         subscriptionId = cfg.subscriptionId;
         callbackGasLimit = cfg.callbackGasLimit;
 
+        // 注意：在 Sepolia fork 上测试时，合约会显示 0.101 ETH 的初始余额
+        // 这是因为我们 fork 了主网状态，此时的 Raffle 合约地址上可能已经存在之前测试遗留的 ETH
         vm.deal(PLAYER, STARTING_PLAYER_BALANCE);
     }
 
@@ -205,6 +207,12 @@ contract RaffleTest is Test, IRaffle, CodeConstants {
 
     // test whole process or enter,pick winner,fulfill random words, send prize
     function testEntireRaffleProcessIsFunctional() public raffleEntered {
+        // 注意：在 Sepolia fork 上测试时，合约会有初始余额（约0.101 ETH）+ raffleEntered()导致的第零个PLAYER入场费
+        // 这是因为我们 fork 了主网状态，此时的 Raffle 合约地址上可能已经存在之前测试遗留的 ETH
+        // 所以在计算最终奖金时，需要使用合约的实际余额，而不是简单地用 entranceFee * players.length
+        // 而在anvil情况下，合约在此处的初始余额就只有第零个PLAYER的入场费
+        uint256 initialBalance = address(raffle).balance;
+
         // Arrange: 3 additional entries
         uint256 additionalEntries = 3;
         for (uint256 i = 1; i < 1 + additionalEntries; i++) {
@@ -222,70 +230,34 @@ contract RaffleTest is Test, IRaffle, CodeConstants {
         Vm.Log[] memory entries = vm.getRecordedLogs();
         bytes32 requestId = entries[1].topics[1];
 
-        // 打印玩家列表
-        address payable[] memory players = raffle.getPlayers();
-        console.log("Players list:");
-        for (uint256 i = 0; i < players.length; i++) {
-            console.log("Player", i, ":", players[i]);
-        }
-
-        // 检查当前环境
         uint256 chainId;
         assembly {
             chainId := chainid()
         }
-        console.log("Current chain ID:", chainId);
-        console.log("ANVIL_CHAIN_ID:", ANVIL_CHAIN_ID);
-
-        // 打印更多状态信息
-        console.log("Before fulfillRandomWords:");
-        console.log("Contract balance:", address(raffle).balance);
-        console.log("Player count:", raffle.getPlayers().length);
-        console.log("Raffle state:", uint256(raffle.getRaffleState()));
-        console.log("Last timestamp:", raffle.getLastTimeStamp());
 
         if (chainId == ANVIL_CHAIN_ID) {
-            console.log("Running on Anvil");
             // 在本地网络上，直接调用 fulfillRandomWords
             VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(uint256(requestId), address(raffle));
         } else {
-            console.log("Running on Sepolia fork");
             // 在 Sepolia fork 上，我们需要模拟 VRF Coordinator 的行为
-            console.log("Mocking VRF Coordinator callback...");
-
             // 准备随机数数组
             uint256[] memory randomWords = new uint256[](1);
-            randomWords[0] = 5; // 5 % 4 = 1
-            console.log("Random number:", randomWords[0]);
+            randomWords[0] = 5; // 5 % 4 = 1，确保在任何环境下都选中 address(1)
 
             // 模拟 VRF Coordinator 的回调
-            vm.prank(vrfCoordinator); // 确保调用者是 VRF Coordinator
+            vm.prank(vrfCoordinator);
             VRFConsumerBaseV2Plus(address(raffle)).rawFulfillRandomWords(uint256(requestId), randomWords);
         }
-
-        // 打印更多状态信息
-        console.log("\nAfter fulfillRandomWords:");
-        console.log("Contract balance:", address(raffle).balance);
-        console.log("Player count:", raffle.getPlayers().length);
-        console.log("Raffle state:", uint256(raffle.getRaffleState()));
-        console.log("Last timestamp:", raffle.getLastTimeStamp());
 
         // Assert
         address recentWinner = raffle.getRecentWinner();
         Raffle.RaffleState raffleState = raffle.getRaffleState();
         uint256 winnerBalance = recentWinner.balance;
         uint256 endingTimeStamp = raffle.getLastTimeStamp();
-        uint256 prize = 141000000000000000; // 0.141 ETH，使用合约的实际余额
 
-        console.log("\nFinal state:");
-        console.log("Winner starting balance:", winnerStartingBalance);
-        console.log("Winner ending balance:", winnerBalance);
-        console.log("Prize:", prize);
-        console.log("Recent winner:", recentWinner);
-        console.log("Expected winner:", expectedWinner);
-        console.log("Raffle state:", uint256(raffleState));
-        console.log("Ending timestamp:", endingTimeStamp);
-        console.log("Starting timestamp:", startingTimeStamp);
+        // 使用合约的最终余额作为奖金
+        // 第零个PLAYER的入场费已经在initialBalance中计算过了, 这里不需要 entranceFee + 1
+        uint256 prize = initialBalance + additionalEntries * entranceFee; // 0.141 ETH = 初始余额(0.111) + 3个玩家的入场费(0.03)
 
         assert(recentWinner == expectedWinner); // 在任何环境下，随机数5都应该选中 address(1)
         assert(raffleState == Raffle.RaffleState.OPEN);
