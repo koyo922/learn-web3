@@ -11,6 +11,21 @@ import {IRaffle} from "./interfaces/IRaffle.sol";
  * @author Patrick Collins (or even better, you own name)
  * @notice This contract is for creating a sample raffle
  * @dev It implements Chainlink VRFv2.5 and Chainlink Automation
+ * 
+ * @dev 重要的设计原则：
+ * 1. 确定性逻辑（如performUpkeep）倾向开放：
+ *    - 纯粹基于链上状态的计算
+ *    - 任何人都可以验证条件是否满足
+ *    - 执行结果是确定的，不依赖外部数据
+ *    - 用业务规则约束而不是权限控制
+ *    - 符合区块链的透明性和可验证性
+ * 
+ * 2. 预言机调用（如fulfillRandomWords）需要严格控制：
+ *    - 依赖外部数据源
+ *    - 必须验证数据提供者的身份
+ *    - 数据会影响合约的关键决策（如随机性）
+ *    - 需要访问控制来保证数据来源可信
+ *    - 防止恶意数据污染系统
  */
 contract Raffle is IRaffle, VRFConsumerBaseV2Plus {
     error Raffle_NotEnoughEthSent();
@@ -72,6 +87,31 @@ contract Raffle is IRaffle, VRFConsumerBaseV2Plus {
         return (upkeepNeeded, "");
     }
 
+    /**
+     * @notice 执行抽奖开奖
+     * @dev 这个函数是 external 的，任何人都可以调用，但这是安全的，原因如下：
+     * 
+     * 1. 严格的检查机制：
+     *    - 必须通过 checkUpkeep 的所有条件
+     *    - 时间间隔已到
+     *    - 状态为 OPEN
+     *    - 有玩家参与
+     *    - 合约有余额
+     *    - 如果条件不满足，交易会被 revert
+     * 
+     * 2. 即使被恶意调用也是安全的：
+     *    - 不会造成资金损失
+     *    - 不会影响随机性（由 VRF 保证）
+     *    - 不会打乱游戏逻辑
+     *    - 最多只是提前触发了"本来就该发生的开奖"
+     *    - 恶意用户还需支付 gas 费
+     * 
+     * 3. 访问控制设计上的区别：
+     *    - VRF回调必须验证调用者身份，因为随机数直接影响游戏公平性
+     *    - 而本函数只是执行既定规则，不会影响游戏公平性
+     *    - 所以这里用业务逻辑约束更符合区块链的开放性理念
+     *    - 合约的安全性来自于逻辑约束，而不是人为的访问控制
+     */
     function performUpkeep(bytes calldata /* performData */) external {
         (bool upkeepNeeded, ) = checkUpkeep("");
         if (!upkeepNeeded) revert Raffle_UpkeepNotNeeded(address(this).balance, s_players.length, uint256(s_raffleState));
