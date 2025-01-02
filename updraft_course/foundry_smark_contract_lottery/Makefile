@@ -60,32 +60,19 @@ fund-sub:
 add-consumer:
 	@forge script script/Interactions.s.sol:AddConsumer $(NETWORK_ARGS) 
 
-# 测试相关命令
-test:
-	@forge test
-
-test-watch:
-	@forge test --watch
-
 # 调试模式运行测试
 # 用法:
 #   make test-debug          - 运行所有测试
 #   make test-debug pattern=testEntire  - 只运行匹配的测试
-test-debug:
+test-anvil:
 	@forge test $(if $(pattern),--match-test $(pattern),) -vvvv
+
+coverage-anvil:
+	@forge coverage
 
 # 下面这些有 --fork-url 参数，即使指定了sepolia，也不会影响真实的sepolia的网络
 test-sepolia:
-	@forge test --fork-url $(ETH_SEPOLIA_RPC_URL) -vvvv
-
-test-calculating-sepolia:
-	@forge test --match-test testPlayerCanNotEnterWhileRaffleIsCalculating --fork-url $(ETH_SEPOLIA_RPC_URL) -vvvv
-
-coverage:
-	@forge coverage
-
-coverage-debug:
-	@forge coverage --report debug | tee coverage.txt
+	@forge test --fork-url $(ETH_SEPOLIA_RPC_URL) $(if $(pattern),--match-test $(pattern),) -vvvv
 
 snapshot:
 	@forge snapshot 
