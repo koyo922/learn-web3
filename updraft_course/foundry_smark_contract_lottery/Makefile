@@ -67,9 +67,12 @@ test:
 test-watch:
 	@forge test --watch
 
+# 调试模式运行测试
+# 用法:
+#   make test-debug          - 运行所有测试
+#   make test-debug pattern=testEntire  - 只运行匹配的测试
 test-debug:
-	@forge test -vvvv
-
+	@forge test $(if $(pattern),--match-test $(pattern),) -vvvv
 
 # 下面这些有 --fork-url 参数，即使指定了sepolia，也不会影响真实的sepolia的网络
 test-sepolia:

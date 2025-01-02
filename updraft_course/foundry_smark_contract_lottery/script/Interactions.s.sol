@@ -38,7 +38,8 @@ contract FundSubscription is Script, CodeConstants {
         // 任何人都可以为 subscription 充值，不需要是 owner
         vm.startBroadcast();
         if (block.chainid == ANVIL_CHAIN_ID) {
-            VRFCoordinatorV2_5Mock(vrfCoordinator).fundSubscription(subId, FUND_AMOUNT);
+            // 本地测试网络mock的base fee是0.25 ether太贵
+            VRFCoordinatorV2_5Mock(vrfCoordinator).fundSubscription(subId, FUND_AMOUNT * 10000);
         } else {
             // 最近 faucets LINK 不稳定，只好先用 native token(ETH) 来 fund
             IVRFSubscriptionV2Plus coordinator = IVRFSubscriptionV2Plus(vrfCoordinator);

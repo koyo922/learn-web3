@@ -187,4 +187,37 @@ contract RaffleTest is Test, IRaffle {
         // Mock网络里面anyone都可以调用fulfillRandomWords，实际网络里面只有VRF Node可以调用
         VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(randomRequestId, address(raffle));
     }
+
+    // test whole process or enter,pick winner,fulfill random words, send prize
+    function testEntireRaffleProcessIsFunctional() public raffleEntered {
+        // Arrange: 3 additional entries
+        uint256 additionalEntries = 3;
+        for (uint256 i = 1; i < 1 + additionalEntries; i++) {
+            address player = address(uint160(i));
+            hoax(player, 1 ether);
+            raffle.enterRaffle{value: entranceFee}();
+        }
+        uint256 startingTimeStamp = raffle.getLastTimeStamp();
+        address expectedWinner = address(1);
+        uint256 winnerStartingBalance = expectedWinner.balance;
+
+        // Act: perform upkeep & fulfill random words
+        vm.recordLogs();
+        raffle.performUpkeep("");
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 requestId = entries[1].topics[1];
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(uint256(requestId), address(raffle));
+
+        // Assert
+        address recentWinner = raffle.getRecentWinner();
+        Raffle.RaffleState raffleState = raffle.getRaffleState();
+        uint256 winnerBalance = recentWinner.balance;
+        uint256 endingTimeStamp = raffle.getLastTimeStamp();
+        uint256 prize = entranceFee * (1 + additionalEntries);
+
+        assert(recentWinner == expectedWinner);
+        assert(raffleState == Raffle.RaffleState.OPEN);
+        assert(winnerBalance == winnerStartingBalance + prize);
+        assert(endingTimeStamp > startingTimeStamp);
+    }
 }

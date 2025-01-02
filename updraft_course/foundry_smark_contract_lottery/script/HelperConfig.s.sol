@@ -9,6 +9,10 @@ abstract contract CodeConstants {
     uint256 public constant DEFAULT_ANVIL_KEY = 1;
     uint256 public constant SEPOLIA_CHAIN_ID = 11155111;
     uint256 public constant ANVIL_CHAIN_ID = 31337;
+
+    uint96 public constant VRF_BASE_FEE = 0.25 ether;
+    uint96 public constant VRF_GAS_PRICE = 1e9; // 1 gwei
+    int256 public constant VRF_WEI_PER_UNIT_LINK = 1e18; // 1 LINK = 1e18 wei
 }
 
 contract HelperConfig is Script, CodeConstants {
@@ -61,11 +65,7 @@ contract HelperConfig is Script, CodeConstants {
         }
 
         vm.startBroadcast();
-        VRFCoordinatorV2_5Mock coordinator = new VRFCoordinatorV2_5Mock(
-            0.25 ether, // baseFee
-            1e9, // gasPrice (1 gwei)
-            1e18 // weiPerUnitLink (1 LINK = 1e18 wei)
-        );
+        VRFCoordinatorV2_5Mock coordinator = new VRFCoordinatorV2_5Mock(VRF_BASE_FEE, VRF_GAS_PRICE, VRF_WEI_PER_UNIT_LINK);
         LinkToken link = new LinkToken();
         vm.stopBroadcast();
 
