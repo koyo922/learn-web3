@@ -22,3 +22,6 @@
 [submodule "updraft_course/foundry_smark_contract_lottery/lib/foundry-devops"]
 	path = updraft_course/foundry_smark_contract_lottery/lib/foundry-devops
 	url = https://github.com/Cyfrin/foundry-devops
+[submodule "updraft_course/foundry_erc20/lib/forge-std"]
+	path = updraft_course/foundry_erc20/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
