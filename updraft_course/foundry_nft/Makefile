@@ -1,5 +1,6 @@
 # https://github.com/Cyfrin/foundry-nft-cu/blob/main/Makefile
--include .env
+# -include .env
+-include ../../.env
 
 .PHONY: all test clean deploy fund help install snapshot format anvil zktest
 
